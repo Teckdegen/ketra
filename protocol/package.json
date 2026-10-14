@@ -1,0 +1,19 @@
+{
+  "name": "ketra",
+  "version": "0.1.0",
+  "description": "Ketra is a smart-account wallet. ML-DSA-44 authorizes every spend.",
+  "license": "MIT",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network robinhood",
+    "prepare:key": "node js/prepare-cli.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.7",
+    "hardhat": "^2.26.0"
+  },
+  "dependencies": {
+    "@noble/post-quantum": "^0.7.1"
+  }
+}

@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f4f4;
+  --foreground: #111111;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-instrument);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-instrument), "Instrument Sans", Helvetica, Arial, sans-serif;
+}
+
+@keyframes ketra-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-marquee {
+  animation: ketra-marquee 110s linear infinite;
+}
+
+@keyframes ketra-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ketra-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 22px 33px;
+  }
+}
+
+@keyframes ketra-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.55);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes ketra-draw {
+  0% {
+    stroke-dashoffset: 320;
+  }
+  70%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ketra-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.orbit-spin {
+  animation: ketra-spin 36s linear infinite;
+}
+
+.orbit-spin-reverse {
+  animation: ketra-spin 36s linear infinite reverse;
+}
+
+.dot-drift {
+  animation: ketra-drift 8s linear infinite;
+}
+
+.pulse-ring {
+  animation: ketra-pulse 2.8s ease-out infinite;
+}
+
+.sig-draw {
+  stroke-dasharray: 320;
+  stroke-dashoffset: 320;
+  animation: ketra-draw 3.6s ease-in-out infinite;
+}
+
+.sheet-float {
+  animation: ketra-float 4.5s ease-in-out infinite;
+}
+
+@keyframes hero-line-forward {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@keyframes hero-line-back {
+  to {
+    stroke-dashoffset: 1000;
+  }
+}
+
+.hero-line-a,
+.hero-line-b {
+  stroke-dasharray: 90 910;
+}
+
+.hero-line-a {
+  animation: hero-line-forward 16s linear infinite;
+}
+
+.hero-line-b {
+  animation: hero-line-back 16s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-marquee,
+  .orbit-spin,
+  .orbit-spin-reverse,
+  .dot-drift,
+  .pulse-ring,
+  .sig-draw,
+  .sheet-float,
+  .hero-line-a,
+  .hero-line-b {
+    animation: none;
+  }
+}
