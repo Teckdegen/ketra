@@ -38,12 +38,21 @@ async function main() {
 
   const verifier = await (await hre.ethers.getContractFactory("MLDSA44Verifier")).deploy(helper);
   await verifier.waitForDeployment();
-  const factory = await (await hre.ethers.getContractFactory("KetraFactory")).deploy(await verifier.getAddress());
+  const feeRecipient = process.env.FEE_ADDRESS;
+  if (!feeRecipient) throw new Error("set FEE_ADDRESS to the address that receives fees");
+  const feeAddress = hre.ethers.getAddress(feeRecipient);
+  if (feeAddress === signer.address) throw new Error("FEE_ADDRESS must not be the gas payer");
+  const factory = await (await hre.ethers.getContractFactory("KetraFactory")).deploy(
+    await verifier.getAddress(),
+    feeAddress
+  );
   await factory.waitForDeployment();
 
   console.log("helper  ", helper);
   console.log("verifier", await verifier.getAddress());
   console.log("factory ", await factory.getAddress());
+  console.log("gas     ", signer.address);
+  console.log("fees    ", feeAddress);
 }
 
 main().catch((error) => {

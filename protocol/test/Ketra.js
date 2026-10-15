@@ -1,8 +1,9 @@
 const { expect } = require("chai");
 const fs = require("fs");
+const solc = require("solc");
 const { ethers } = require("hardhat");
 const { createKeypair, signAuthorization } = require("../js/crypto");
-const { mainnet, v3Router02Steps, v4SwapSteps, morphoSupplySteps, steakhouseDepositSteps, lighterDepositSteps } = require("../js/robinhood");
+const { mainnet, transferFee, defiFee, v3Router02Steps, v4SwapSteps, morphoSupplySteps, steakhouseDepositSteps, lighterDepositSteps } = require("../js/robinhood");
 
 const F1600_CODEHASH = "0x4afb4435879cdf8e50474c7aab2bc3a679caed432550ad6dba64f509309a817b";
 const F1600_RUNTIME_SIZE = 21622;
@@ -17,15 +18,84 @@ function helperInitCode() {
   return "0x61" + len + "600e60003961" + len + "6000f3" + raw;
 }
 
+const PROBE = `
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract Cash {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    function mint(address to, uint256 amount) external { balanceOf[to] += amount; }
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+}
+contract Vault {
+    Cash public cash;
+    uint256 public got;
+    constructor(Cash cash_) { cash = cash_; }
+    function asset() external view returns (address) { return address(cash); }
+    function deposit(uint256 assets, address) external returns (uint256) {
+        cash.transferFrom(msg.sender, address(this), assets);
+        got = assets;
+        return assets;
+    }
+}
+contract Sink {
+    Cash public cash;
+    uint256 public got;
+    constructor(Cash cash_) { cash = cash_; }
+    fallback() external {
+        uint256 amount;
+        assembly { amount := calldataload(772) }
+        got = amount;
+        cash.transferFrom(msg.sender, address(this), amount);
+    }
+}
+`;
+
+function compileProbe() {
+  const output = JSON.parse(
+    solc.compile(
+      JSON.stringify({
+        language: "Solidity",
+        sources: { "Probe.sol": { content: PROBE } },
+        settings: { outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } } },
+      })
+    )
+  );
+  if (output.errors && output.errors.some((error) => error.severity === "error")) {
+    throw new Error(output.errors.map((error) => error.formattedMessage).join("\n"));
+  }
+  const contracts = output.contracts["Probe.sol"];
+  return {
+    cash: { abi: contracts.Cash.abi, bytecode: "0x" + contracts.Cash.evm.bytecode.object },
+    vault: { abi: contracts.Vault.abi, bytecode: "0x" + contracts.Vault.evm.bytecode.object },
+    sink: { abi: contracts.Sink.abi, bytecode: "0x" + contracts.Sink.evm.bytecode.object },
+  };
+}
+
 async function freshFactory() {
   const [signer] = await ethers.getSigners();
   const tx = await signer.sendTransaction({ data: helperInitCode() });
   const receipt = await tx.wait();
   const verifier = await (await ethers.getContractFactory("MLDSA44Verifier")).deploy(receipt.contractAddress);
   await verifier.waitForDeployment();
-  const factory = await (await ethers.getContractFactory("KetraFactory")).deploy(await verifier.getAddress());
+  const feeRecipient = ethers.Wallet.createRandom().address;
+  const factory = await (await ethers.getContractFactory("KetraFactory")).deploy(await verifier.getAddress(), feeRecipient);
   await factory.waitForDeployment();
-  return { signer, factory };
+  return { signer, factory, feeRecipient };
 }
 
 describe("Ketra", function () {
@@ -33,6 +103,7 @@ describe("Ketra", function () {
 
   let signer;
   let factory;
+  let feeRecipient;
 
   before(async function () {
     const [payer] = await ethers.getSigners();
@@ -47,7 +118,7 @@ describe("Ketra", function () {
         );
       }
     }
-    ({ signer, factory } = await freshFactory());
+    ({ signer, factory, feeRecipient } = await freshFactory());
     console.log("factory", await factory.getAddress());
   });
 
@@ -59,7 +130,7 @@ describe("Ketra", function () {
     const keyTx = await factory.deployKey(salt, blob);
     await keyTx.wait();
     const pkBlob = await factory.predictKey(salt, blob);
-    const accountTx = await factory.createAccount(salt, pkBlob);
+    const accountTx = await factory.createAccount(salt, pkBlob, { gasLimit: 12_000_000 });
     await accountTx.wait();
     const account = await ethers.getContractAt("KetraAccount", await factory.predictAccount(salt, pkBlob));
 
@@ -91,8 +162,56 @@ describe("Ketra", function () {
 
     const signature = await signAuthorization(ethers.getBytes(message), keys.secretKey);
     await (await account.execute(0, deadline, 0, steps, signature)).wait();
-    expect(await ethers.provider.getBalance(payee)).to.equal(amount);
+    expect(await ethers.provider.getBalance(payee)).to.equal(amount - transferFee(amount));
+    expect(await ethers.provider.getBalance(feeRecipient)).to.equal(transferFee(amount));
+    expect(await account.feeRecipient()).to.equal(feeRecipient);
+    expect(await account.previewFee(2, 10_000)).to.equal(transferFee(10_000));
+    expect(await account.previewFee(1, 10_000)).to.equal(defiFee(10_000));
+    expect(await account.previewFee(4, 10_000)).to.equal(0n);
     expect(await account.nonce()).to.equal(1n);
+
+    const probe = compileProbe();
+    const cash = await new ethers.ContractFactory(probe.cash.abi, probe.cash.bytecode, signer).deploy();
+    await cash.waitForDeployment();
+    const vault = await new ethers.ContractFactory(probe.vault.abi, probe.vault.bytecode, signer).deploy(await cash.getAddress());
+    await vault.waitForDeployment();
+    const sink = await new ethers.ContractFactory(probe.sink.abi, probe.sink.bytecode, signer).deploy(await cash.getAddress());
+    await sink.waitForDeployment();
+    const spend = 10_000n;
+    await (await cash.mint(await account.getAddress(), spend * 3n)).wait();
+
+    const v4 = v4SwapSteps({
+      router: await sink.getAddress(),
+      permit2: mainnet.permit2,
+      pool: { ...mainnet.v4WethUsdg, currency0: await cash.getAddress() },
+      zeroForOne: true,
+      amountIn: spend,
+      amountOutMin: 1n,
+      deadline,
+    });
+    const routerCall = v4.find((item) => item[0] === 1 && coder.decode(["address", "uint256", "bytes"], item[1])[2].startsWith("0x3593564c"));
+    const routerData = coder.decode(["address", "uint256", "bytes"], routerCall[1])[2];
+    expect((routerData.length - 2) / 2).to.equal(1124);
+
+    const more = [
+      { action: 9, payload: coder.encode(["address", "bool"], [await vault.getAddress(), true]) },
+      { action: 9, payload: coder.encode(["address", "bool"], [await sink.getAddress(), true]) },
+      { action: 3, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), payee, spend]) },
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), await vault.getAddress(), spend]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [await vault.getAddress(), 0, vault.interface.encodeFunctionData("deposit", [spend, payee])]) },
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), await vault.getAddress(), 0]) },
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), await sink.getAddress(), spend]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [await sink.getAddress(), 0, routerData]) },
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), await sink.getAddress(), 0]) },
+    ];
+    const again = await signAuthorization(ethers.getBytes(await account.authorizationMessage(1, deadline, 0, more)), keys.secretKey);
+    await (await account.execute(1, deadline, 0, more, again)).wait();
+
+    expect(await cash.balanceOf(payee)).to.equal(spend - transferFee(spend));
+    expect(await vault.got()).to.equal(spend - defiFee(spend));
+    expect(await sink.got()).to.equal(spend - defiFee(spend));
+    expect(await cash.balanceOf(feeRecipient)).to.equal(transferFee(spend) + defiFee(spend) + defiFee(spend));
+    expect(await cash.balanceOf(await account.getAddress())).to.equal(0n);
   });
 
   it("rejects a degenerate public key on a fresh factory", async function () {

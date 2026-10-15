@@ -9,6 +9,17 @@ const { AbiCoder, getAddress } = require("ethers");
 
 const coder = AbiCoder.defaultAbiCoder();
 
+const TRANSFER_FEE_BPS = 10n;
+const DEFI_FEE_BPS = 50n;
+
+function transferFee(amount) {
+  return (BigInt(amount) * TRANSFER_FEE_BPS) / 10000n;
+}
+
+function defiFee(amount) {
+  return (BigInt(amount) * DEFI_FEE_BPS) / 10000n;
+}
+
 const ACTION_CALL = 1;
 const ACTION_APPROVE = 4;
 const ACTION_SWAP_V2 = 5;
@@ -185,6 +196,10 @@ function allowAndCall({ target, token, amount, data }) {
 
 module.exports = {
   mainnet,
+  TRANSFER_FEE_BPS,
+  DEFI_FEE_BPS,
+  transferFee,
+  defiFee,
   ACTION_CALL,
   ACTION_APPROVE,
   ACTION_SWAP_V2,
