@@ -201,7 +201,7 @@ export default function Home() {
             <p className="text-[11px] font-medium tracking-[0.14em] uppercase">All crypto</p>
             <p className="mt-6 text-[42px] leading-none font-medium tracking-[-0.04em]">$2.76 trillion</p>
             <p className="mt-4 max-w-[28ch] text-[14px] leading-6 text-white/80">
-              CoinGecko, 14 Oct 2026. These assets still move with ordinary chain signatures.
+              These assets still move with ordinary chain signatures.
             </p>
             <svg viewBox="0 0 320 168" className="mt-auto h-[168px] w-full" role="img" aria-label="Share of crypto market cap">
               <line x1="28" y1="18" x2="308" y2="18" stroke="rgba(255,255,255,0.12)" />
@@ -227,9 +227,6 @@ export default function Home() {
                 );
               })}
             </svg>
-            <a href="https://www.coingecko.com/en/global" target="_blank" rel="noreferrer" className="mt-6 flex items-center justify-between border-t border-white/20 pt-4 text-[14px]">
-              14 Oct 2026 <span aria-hidden="true">→</span>
-            </a>
           </article>
 
           <article
