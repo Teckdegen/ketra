@@ -235,9 +235,6 @@ export default function Home() {
           >
             <p className="text-[11px] font-medium tracking-[0.14em] uppercase">Robinhood TVL</p>
             <p className="mt-6 text-[42px] leading-none font-medium tracking-[-0.04em]">$1.048 billion</p>
-            <p className="mt-4 max-w-[30ch] text-[14px] leading-6 text-[#4a4a4a]">
-              DefiLlama chain total, 14 Oct 2026. Double-counted deposits are already removed.
-            </p>
             <svg viewBox="0 0 320 168" className="mt-auto h-[168px] w-full" role="img" aria-label="Robinhood Chain TVL from July to October 2026">
               <line x1="36" y1="24" x2="308" y2="24" stroke="#ececec" />
               <line x1="36" y1="62" x2="308" y2="62" stroke="#ececec" />
@@ -261,9 +258,6 @@ export default function Home() {
               <rect x="262" y="132" width="36" height="18" rx="4" fill="#111" />
               <text x="280" y="145" textAnchor="middle" fill="#fff" fontSize="11">Oct</text>
             </svg>
-            <a href="https://defillama.com/chain/robinhood" target="_blank" rel="noreferrer" className="mt-6 flex items-center justify-between border-t border-[#e4e4e4] pt-4 text-[14px]">
-              14 Oct 2026 <span aria-hidden="true">→</span>
-            </a>
           </article>
 
           <article
@@ -272,9 +266,6 @@ export default function Home() {
           >
             <p className="text-[11px] font-medium tracking-[0.14em] uppercase">Stablecoins</p>
             <p className="mt-6 text-[42px] leading-none font-medium tracking-[-0.04em]">$303 billion</p>
-            <p className="mt-4 max-w-[30ch] text-[14px] leading-6 text-[#3f3f3f]">
-              DefiLlama, 14 Oct 2026. Dollar tokens across every chain they count.
-            </p>
             <svg viewBox="0 0 320 168" className="mt-auto h-[168px] w-full" role="img" aria-label="Stablecoin supply split">
               <text x="8" y="36" fill="#6d6d6d" fontSize="10">0</text>
               <text x="292" y="36" fill="#6d6d6d" fontSize="10">100%</text>
@@ -290,9 +281,6 @@ export default function Home() {
               <rect x="214" y="116" width="8" height="8" rx="2" fill="#f7f7f7" stroke="#c8c8c8" />
               <text x="228" y="124" fill="#6d6d6d" fontSize="12">Other 15%</text>
             </svg>
-            <a href="https://defillama.com/stablecoins" target="_blank" rel="noreferrer" className="mt-6 flex items-center justify-between border-t border-[#cfcfcf] pt-4 text-[14px]">
-              14 Oct 2026 <span aria-hidden="true">→</span>
-            </a>
           </article>
         </div>
       </section>
