@@ -67,8 +67,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [entered, setEntered] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (localStorage.getItem("ketra-rail") === "closed") setOpen(false);
-    setEntered(readWallets().wallets.length > 0);
+    function sync() {
+      if (localStorage.getItem("ketra-rail") === "closed") setOpen(false);
+      setEntered(readWallets().wallets.length > 0);
+    }
+    sync();
+    window.addEventListener("pageshow", sync);
+    return () => window.removeEventListener("pageshow", sync);
   }, [path]);
 
   useEffect(() => {

@@ -67,7 +67,7 @@ export default function Welcome() {
     event.preventDefault();
     const next = parseSeed(seed);
     if (!next) {
-      setError("Use the quantum private key or seed phrase as 64 hex characters.");
+      setError("Use the seed phrase as 64 hex characters.");
       return;
     }
     setError("");
@@ -103,7 +103,7 @@ export default function Welcome() {
         {mode === "choose" ? (
           <>
             <p className="mx-auto mt-8 max-w-[280px] text-[15px] leading-6 text-[#6a6a6a]">
-              Create a new wallet, or enter the quantum private key or seed phrase for one you already have.
+              Create a new wallet, or enter the seed phrase for one you already have.
             </p>
             <button
               type="button"
@@ -130,7 +130,7 @@ export default function Welcome() {
         {mode === "create" && seed ? (
           <>
             <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
-              This is the quantum private key or seed phrase. It stays on this device. Copy it before you continue.
+              This is the seed phrase. It stays on this device. Copy it before you continue.
             </p>
             <p className="mt-5 break-all rounded-2xl bg-white/70 px-4 py-4 text-left font-mono text-[12px] leading-5">
               {shown ? seed : "••••"}
@@ -152,10 +152,10 @@ export default function Welcome() {
         {mode === "import" ? (
           <form onSubmit={recover}>
             <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
-              Enter the quantum private key or seed phrase. It stays in this browser and is not sent.
+              Enter the seed phrase. It stays in this browser and is not sent.
             </p>
             <label className="mt-6 block text-left text-[13px] text-[#8a8a8a]" htmlFor="quantum-key">
-              Quantum private key or seed phrase
+              Seed phrase
             </label>
             <textarea
               id="quantum-key"

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { addWallet, clearWallets, readWallets, setActive, type SavedWallet } from "@/lib/wallets";
+import { addWallet, clearWallets, readWallets, removeWallet, setActive, type SavedWallet } from "@/lib/wallets";
 import { WalletAvatar } from "../wallet-avatar";
 
 function parseSeed(value: string) {
@@ -32,6 +32,8 @@ export default function Settings() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState<"wallets" | "export" | "privacy" | "help" | null>("wallets");
   const [revealed, setRevealed] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmForget, setConfirmForget] = useState(false);
 
   useEffect(() => {
     const state = readWallets();
@@ -55,13 +57,14 @@ export default function Settings() {
     setActiveId(state.activeId);
     setRevealed("");
     setError("");
+    setConfirmDelete(false);
   }
 
   function recover(event: React.FormEvent) {
     event.preventDefault();
     const next = parseSeed(seed);
     if (!next) {
-      setError("Use the 32-byte ML-DSA-44 seed, as 64 hex characters.");
+      setError("Use the seed phrase as 64 hex characters.");
       return;
     }
     const wallet = addWallet(next);
@@ -87,14 +90,21 @@ export default function Settings() {
     }
   }
 
-  function forget() {
-    clearWallets();
-    setWallets([]);
-    setActiveId("");
+  function dropActive() {
+    if (!active) return;
+    const state = removeWallet(active.id);
+    setWallets(state.wallets);
+    setActiveId(state.activeId);
     setSeed("");
     setError("");
     setRevealed("");
-    setOpen(null);
+    setConfirmDelete(false);
+    if (state.wallets.length === 0) window.location.assign("/create");
+  }
+
+  function forget() {
+    clearWallets();
+    window.location.replace("/create");
   }
 
   return (
@@ -132,7 +142,7 @@ export default function Settings() {
           <span className="min-w-0 flex-1">
             <span className="block text-[15px] font-medium">{active ? `Wallet ${activeIndex + 1}` : "Ketra account"}</span>
             <span className="block text-[13px] text-[#8a8a8a]">
-              {wallets.length > 1 ? "Switch wallet" : active ? "Owner key is on this device." : "No owner key on this device."}
+              {wallets.length > 1 ? "Switch wallet" : active ? "Seed phrase is on this device." : "No seed phrase on this device."}
             </span>
           </span>
           <Chevron />
@@ -163,7 +173,7 @@ export default function Settings() {
             <circle cx="8" cy="14" r="3" />
             <path d="M10.2 12.2 L20 4 M16 4 H20 V8" />
           </svg>
-          <span className="flex-1 text-[15px]">Export private key</span>
+          <span className="flex-1 text-[15px]">Seed phrase</span>
           <Chevron />
         </button>
         {open === "export" ? (
@@ -184,14 +194,14 @@ export default function Settings() {
                   </>
                 ) : (
                   <button type="button" onClick={reveal} className="rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
-                    Show seed
+                    Show seed phrase
                   </button>
                 )}
                 {error ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{error}</p> : null}
               </div>
             ) : (
               <form onSubmit={recover} className="pt-4">
-                <p className="text-[13px] leading-5 text-[#8a8a8a]">Paste the 32-byte ML-DSA-44 seed. It stays in this browser and is not sent anywhere.</p>
+                <p className="text-[13px] leading-5 text-[#8a8a8a]">Paste the seed phrase. It stays in this browser and is not sent anywhere.</p>
                 <input
                   value={seed}
                   onChange={(event) => {
@@ -216,6 +226,29 @@ export default function Settings() {
           <span className="flex-1 text-[15px]">Add a wallet</span>
           <Chevron />
         </Link>
+        {active ? (
+          <div className="border-t border-white/60 py-4">
+            {confirmDelete ? (
+              <div>
+                <p className="text-[13px] leading-5 text-[#8a8a8a]">
+                  This removes Wallet {activeIndex + 1} from this device. The seed phrase is the only way back.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={dropActive} className="rounded-lg bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
+                    Delete this wallet
+                  </button>
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="glass-field rounded-lg px-4 py-2.5 text-[13px]">
+                    Keep it
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmDelete(true)} className="text-left text-[15px] text-[#c4362c]">
+                Delete this wallet
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <h2 className="mt-8 text-[1.35rem] font-medium tracking-[-0.03em]">Preferences</h2>
@@ -229,7 +262,7 @@ export default function Settings() {
         </button>
         {open === "privacy" ? (
           <p className="pb-4 text-[13px] leading-5 text-[#8a8a8a]">
-            Each owner key is ML-DSA-44. Saved seeds stay in this browser. The gas payer can submit a signed batch and cannot move the assets.
+            The seed phrase stays in this browser. The gas payer can submit a signed batch and cannot move the assets.
           </p>
         ) : null}
         <button type="button" onClick={() => toggle("help")} className="flex w-full items-center gap-3 border-t border-white/60 py-4 text-left">
@@ -249,13 +282,27 @@ export default function Settings() {
             </Link>
           </p>
         ) : null}
-        <button type="button" onClick={forget} className="flex w-full items-center gap-3 border-t border-white/60 py-4 text-left text-[#c4362c]">
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
-            <path d="M10 7 V5.5 A1.5 1.5 0 0 1 11.5 4 H18.5 A1.5 1.5 0 0 1 20 5.5 V18.5 A1.5 1.5 0 0 1 18.5 20 H11.5 A1.5 1.5 0 0 1 10 18.5 V17" />
-            <path d="M4 12 H14 M11 9 L14 12 L11 15" />
-          </svg>
-          <span className="flex-1 text-[15px]">Forget this device</span>
-        </button>
+        {confirmForget ? (
+          <div className="border-t border-white/60 py-4">
+            <p className="text-[13px] leading-5 text-[#8a8a8a]">This removes every wallet on this device. A seed phrase is the only way back.</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={forget} className="rounded-lg bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
+                Forget this device
+              </button>
+              <button type="button" onClick={() => setConfirmForget(false)} className="glass-field rounded-lg px-4 py-2.5 text-[13px]">
+                Keep them
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirmForget(true)} className="flex w-full items-center gap-3 border-t border-white/60 py-4 text-left text-[#c4362c]">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M10 7 V5.5 A1.5 1.5 0 0 1 11.5 4 H18.5 A1.5 1.5 0 0 1 20 5.5 V18.5 A1.5 1.5 0 0 1 18.5 20 H11.5 A1.5 1.5 0 0 1 10 18.5 V17" />
+              <path d="M4 12 H14 M11 9 L14 12 L11 15" />
+            </svg>
+            <span className="flex-1 text-[15px]">Forget this device</span>
+          </button>
+        )}
       </div>
     </div>
   );

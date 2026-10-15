@@ -60,6 +60,16 @@ export function addWallet(seed: string, address = "") {
   return wallet;
 }
 
+export function removeWallet(id: string) {
+  const state = readWallets();
+  const index = state.wallets.findIndex((wallet) => wallet.id === id);
+  if (index < 0) return state;
+  const wallets = state.wallets.filter((wallet) => wallet.id !== id);
+  const activeId = state.activeId === id ? (wallets[index] ?? wallets[index - 1])?.id ?? "" : state.activeId;
+  persist(wallets, activeId);
+  return { wallets, activeId };
+}
+
 export function setActive(id: string) {
   const state = readWallets();
   if (!state.wallets.some((wallet) => wallet.id === id)) return state;
@@ -77,8 +87,10 @@ export function rememberAddress(id: string, address: string) {
 }
 
 export function clearWallets() {
-  localStorage.removeItem(LIST);
-  localStorage.removeItem(ACTIVE);
-  localStorage.removeItem(LEGACY);
-  localStorage.removeItem("ketra-avatar-seed");
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("ketra-") && key !== "ketra-rail") keys.push(key);
+  }
+  for (const key of keys) localStorage.removeItem(key);
 }
