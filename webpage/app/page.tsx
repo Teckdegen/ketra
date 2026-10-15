@@ -61,9 +61,9 @@ export default function Home() {
       <main id="top" className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-6">
         <div className="flex flex-1 flex-col items-center justify-center pt-24 pb-8 text-center sm:pt-32">
           <h1 className="text-[2.5rem] leading-[0.95] font-medium tracking-[-0.04em] text-black sm:text-[3.45rem]">
-            Sign every spend
+            Quantum Resistant
             <br />
-            with ML-DSA-44
+            Wallet
           </h1>
           <p className="mt-4 max-w-xl text-[15px] leading-6 font-normal text-[#8a8a8a]">
             Ketra is a smart-account wallet. The account holds the assets. Only an ML-DSA-44 signature can move them.
