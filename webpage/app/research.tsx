@@ -10,22 +10,34 @@ const stories = [
     caption: "In August 2024 NIST published FIPS 204. ML-DSA-44, the signature Ketra verifies, is that standard.",
   },
   {
-    name: "Dilithium",
+    name: "Bai, Ducas, Kiltz, Lepoint, Lyubashevsky, Schwabe, Seiler, Stehlé",
     image: "/research/dilithium.jpg",
     alt: "A metal and glass lattice model on a dark lab bench",
-    caption: "CRYSTALS-Dilithium is the public lattice signature ML-DSA was standardized from. Ketra did not invent it.",
+    caption: "Their lattice signature is CRYSTALS-Dilithium. FIPS 204 standardizes it as ML-DSA. ML-DSA-44 is the smallest parameter set.",
   },
   {
-    name: "Fireblocks",
-    image: "/research/fireblocks.jpg",
-    alt: "A dim aisle of server racks with a small amber light",
-    caption: "Fireblocks Labs published an unaudited ML-DSA-44 verifier for the EVM. Ketra calls that checker and does not rewrite it.",
+    name: "Renaud Dubois, Simon Masson",
+    image: "/research/account.jpg",
+    alt: "A closed steel lockbox on a laboratory table",
+    caption: "Their draft asks Ethereum for a precompile that checks an ML-DSA signature. One path follows FIPS 204. Another uses Keccak, which the chain already prices, to spend less gas. It is still a draft.",
   },
   {
-    name: "Signal",
-    image: "/research/signal.jpg",
-    alt: "Hands holding a dark phone by a rain-streaked window at night",
-    caption: "Signal’s PQXDH adds ML-KEM beside X25519 for the handshake. That protects session setup. It is not the ML-DSA spend signature.",
+    name: "James Kempton",
+    image: "/research/single.jpg",
+    alt: "Separate sealed envelopes standing apart on a laboratory table",
+    caption: "His draft gives Ethereum one registry for signatures other than secp256k1, so a post-quantum signature can identify an account. ML-DSA is specified in a separate draft that plugs into it. It is still a draft.",
+  },
+  {
+    name: "Schemitt, da Silva, Lunardi, Kreutz, Mansilha, Zorzo",
+    image: "/research/calldata.jpg",
+    alt: "Thick stacks of paper on a laboratory table under a desk lamp",
+    caption: "They time ML-DSA against ECDSA on the signature path Bitcoin and Ethereum use. The check can be fast. The keys and signatures take far more room.",
+  },
+  {
+    name: "Massimo, Kampanakis, Turner, Westerbaan",
+    image: "/research/pubkey.jpg",
+    alt: "A large iron key beside a small coin on a laboratory table",
+    caption: "Their standard says how an ML-DSA public key and signature sit in a certificate. ML-DSA-44, ML-DSA-65, and ML-DSA-87 each get an identifier.",
   },
 ];
 
@@ -77,7 +89,7 @@ export function Research() {
           <article key={story.name} className="relative h-[460px] w-[min(540px,82vw)] shrink-0 snap-start overflow-hidden rounded-[28px]">
             <img src={story.image} alt={story.alt} className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/35" />
-            <p className="absolute top-5 left-5 text-[16px] font-semibold tracking-[-0.03em] text-white">{story.name}</p>
+            <p className="absolute top-5 right-5 left-5 max-w-[28ch] text-[15px] leading-tight font-semibold tracking-[-0.03em] text-white">{story.name}</p>
             <p className="absolute right-5 bottom-5 left-5 max-w-[36ch] text-[13px] leading-snug text-white">{story.caption}</p>
           </article>
         ))}
