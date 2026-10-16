@@ -220,7 +220,11 @@ export async function walletOverview(input: {
   const created = Number.isInteger(input.from) && (input.from ?? 0) > 0 ? input.from! : await createdBlock(provider, owner, latest);
   const padded = zeroPadValue(owner, 32);
 
-  // Blockscout PRO: holdings + token transfers (includes stock receives the RPC log scan often misses).
+  // Stocks: official RHJ registry + Multicall (Blockscout multipliers/junk holdings broke stock display).
+  // Blockscout: token-transfers for activity + non-stock ERC-20 holdings only.
+  const stockAddresses = await rhjStockAddresses();
+  const stockSet = new Set(stockAddresses.map((token) => token.toLowerCase()));
+
   const [scoutBalances, scoutTransfers, eth] = await Promise.all([
     blockscoutTokenBalances(owner),
     blockscoutTokenTransfers(owner, MAX_ITEMS * 2),
@@ -235,13 +239,14 @@ export async function walletOverview(input: {
       /* skip */
     }
   };
-  for (const token of [...DEFAULT_TOKENS, ...(Array.isArray(input.tokens) ? input.tokens.slice(0, 40) : [])]) {
+  for (const token of [...DEFAULT_TOKENS, ...stockAddresses, ...(Array.isArray(input.tokens) ? input.tokens.slice(0, 40) : [])]) {
     addToken(token);
   }
+  // Non-stock holdings from Blockscout (memes, vault shares) — never trust scout for RH stock balances.
   if (scoutBalances) {
-    for (const row of scoutBalances) addToken(row.token);
-  } else {
-    for (const token of await rhjStockAddresses()) addToken(token);
+    for (const row of scoutBalances) {
+      if (!stockSet.has(row.token.toLowerCase())) addToken(row.token);
+    }
   }
 
   const items = new Map<
@@ -345,25 +350,53 @@ export async function walletOverview(input: {
     ),
   );
 
-  let balances: { token: string; balance: string | null }[];
-  if (scoutBalances) {
-    const byToken = new Map(scoutBalances.map((row) => [row.token.toLowerCase(), row.balance]));
-    // Still surface extra tracked tokens the user imported (may be zero).
-    for (const token of tracked.values()) {
-      if (!byToken.has(token.toLowerCase())) byToken.set(token.toLowerCase(), "0");
-    }
-    balances = [...byToken.entries()].slice(0, MAX_TOKENS).map(([token, balance]) => ({
-      token: getAddress(token),
-      balance,
-    }));
-  } else {
-    const tokenList = [...tracked.values()].slice(0, MAX_TOKENS);
-    const tokenBalances = await balancesOf(provider, owner, tokenList);
-    balances = tokenList.map((token, index) => ({
-      token,
-      balance: tokenBalances[index] == null ? null : tokenBalances[index]!.toString(),
-    }));
+  // Always Multicall RHJ stocks + rails + imports. Blockscout only fills other non-stock holdings.
+  const imported = new Set(
+    (Array.isArray(input.tokens) ? input.tokens : []).map((token) => {
+      try {
+        return getAddress(token).toLowerCase();
+      } catch {
+        return "";
+      }
+    }),
+  );
+  const primaryTokens = [...tracked.values()]
+    .filter(
+      (token) =>
+        stockSet.has(token.toLowerCase()) ||
+        DEFAULT_TOKENS.some((d) => same(d, token)) ||
+        imported.has(token.toLowerCase()),
+    )
+    .slice(0, MAX_TOKENS);
+  const primaryKnown = new Set(primaryTokens.map((token) => token.toLowerCase()));
+  const extraFromScout = scoutBalances
+    ? scoutBalances
+        .filter((row) => !stockSet.has(row.token.toLowerCase()) && !primaryKnown.has(row.token.toLowerCase()))
+        .slice(0, 40)
+    : [];
+  const extraTracked = [...tracked.values()]
+    .filter(
+      (token) =>
+        !primaryKnown.has(token.toLowerCase()) &&
+        !extraFromScout.some((row) => same(row.token, token)) &&
+        !stockSet.has(token.toLowerCase()),
+    )
+    .slice(0, Math.max(0, 40 - extraFromScout.length));
+
+  const needRpc = [...primaryTokens, ...extraTracked];
+  const rpcBalances = await balancesOf(provider, owner, needRpc);
+  const byToken = new Map<string, string | null>();
+  needRpc.forEach((token, index) => {
+    byToken.set(token.toLowerCase(), rpcBalances[index] == null ? null : rpcBalances[index]!.toString());
+  });
+  for (const row of extraFromScout) {
+    byToken.set(row.token.toLowerCase(), row.balance);
   }
+
+  const balances = [...byToken.entries()].slice(0, MAX_TOKENS).map(([token, balance]) => ({
+    token: getAddress(token),
+    balance,
+  }));
 
   return {
     created,
