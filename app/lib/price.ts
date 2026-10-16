@@ -1,5 +1,6 @@
 import { ethCall } from "./chain";
 import { findRoute } from "./quote";
+import { rhjUsdByAddress } from "./rhj-assets";
 import { tokenById, USDG_ADDRESS, WETH_ADDRESS, type Token } from "./tokens";
 
 const GECKO = "https://api.geckoterminal.com/api/v2";
@@ -88,10 +89,21 @@ export async function valueOf(token: Token, amount: bigint, ethUsd?: number | nu
 }
 
 export async function valuesOf(entries: { token: Token; amount: bigint }[]): Promise<Map<string, Value>> {
-  const ethUsd = await ethUsdPrice();
+  const [ethUsd, stockUsd] = await Promise.all([ethUsdPrice(), rhjUsdByAddress()]);
   const result = new Map<string, Value>();
   await Promise.all(
     entries.map(async ({ token, amount }) => {
+      if (amount === 0n) {
+        result.set(token.id, { eth: 0, usd: 0 });
+        return;
+      }
+      const address = token.address?.toLowerCase() ?? (token.id.startsWith("0x") ? token.id.toLowerCase() : null);
+      const unitUsd = address ? stockUsd.get(address) : undefined;
+      if (unitUsd != null && unitUsd > 0) {
+        const usd = asNumber(amount, token.decimals) * unitUsd;
+        result.set(token.id, { eth: ethUsd && ethUsd > 0 ? usd / ethUsd : null, usd });
+        return;
+      }
       result.set(token.id, await valueOf(token, amount, ethUsd));
     }),
   );

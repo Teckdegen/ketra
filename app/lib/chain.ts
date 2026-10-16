@@ -1,3 +1,4 @@
+import { rhjAsToken } from "./rhj-assets";
 import { isAddress, tokenByAddress, tokenById, tokens, type Token } from "./tokens";
 
 export const RPC = process.env.KETRA_RPC || "https://rpc.mainnet.chain.robinhood.com";
@@ -108,7 +109,7 @@ export async function markets(addresses: string[]) {
   return result;
 }
 
-/** ERC-20 metadata from the contract. Pons launch tokens carry their logo onchain; others use DexScreener. */
+/** ERC-20 metadata. Official Robinhood stocks use rhj/assets; Pons logos are onchain; else DexScreener. */
 export async function tokenInfo(address: string): Promise<Token | null> {
   if (!isAddress(address)) return null;
   const key = address.toLowerCase();
@@ -116,6 +117,12 @@ export async function tokenInfo(address: string): Promise<Token | null> {
   if (known) return known;
   const hit = infoCache.get(key);
   if (hit && Date.now() - hit.at < INFO_TTL) return hit.token;
+
+  const stock = await rhjAsToken(key);
+  if (stock) {
+    infoCache.set(key, { at: Date.now(), token: stock });
+    return stock;
+  }
 
   const [name, symbol, decimals, logo] = await Promise.all([
     ethCall(key, "0x06fdde03").then(decodeString),

@@ -9,6 +9,7 @@ import {
   type Log,
   type TransactionReceipt,
 } from "ethers";
+import { rhjStockAddresses } from "@/lib/rhj-assets";
 import { factoryAddress, factoryBlock, provider as connect } from "@/lib/server-chain";
 import { robinhood } from "@/lib/robinhood";
 import type { ActivityKind } from "@/lib/wallet-types";
@@ -18,23 +19,15 @@ const CHUNK = 9_000_000;
 /** Smaller windows for chain-wide Transfer discovery (no contract address filter). */
 const DISCOVER_CHUNK = 200_000;
 const MAX_ITEMS = 40;
+const MAX_TOKENS = 250;
 const WETH = robinhood.weth;
-/** Borro stock vault share tokens on Robinhood Chain (SPY, QQQ, NVDA, …). */
-const STOCK_TOKENS = [
-  "0xC3ED4a5A7dB4102F4Ed37Af26ef0d3f21e2360c1", // SPY / bSPY
-  "0xbAD8A97dA1050092d6a14194D53E72D407D6cc17", // QQQ
-  "0x508E23274C39C60c345e35B1f0188bE180717CB9", // NVDA
-  "0x60b3d353E7e5bD12ED4Ea2589C11B5603dd4c988", // TSLA
-  "0x2B74f8F2b76cd4e97265BC37FB2578a04B8437e9", // MSTR
-  "0x7BA71BCCeCb12860aE7E141B6b6F1f8B96d31257", // COIN
-  "0xFE9419E70e5481F7a2dDddc18f856b09b3687B27", // PLTR
-  "0x1261210E19052157fCe2064D9aa9A2140Bd89791", // SPCX
-  "0x328461fB01F54C2Ab73909EA947c583d0dC24C3d", // GME
-  "0x24Fe7bCAEB75bC2202A42ECD48a177a27782c64a", // AAPL
-  "0xf0731B1022ABD1e3f543Cfd837C7eBA42ED60E4f", // GOOGL
-  "0x8032C80a7817a3C4C401b096515B27b2CedA4e71", // MSFT
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+/** Core rails always checked; official RH stocks come from api.robinhood.com/rhj/assets. */
+const DEFAULT_TOKENS = [WETH, robinhood.usdg, robinhood.steakUsdg];
+const BALANCE_OF = new Interface(["function balanceOf(address) view returns (uint256)"]);
+const MULTICALL_ABI = [
+  "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)",
 ];
-const DEFAULT_TOKENS = [WETH, robinhood.usdg, robinhood.steakUsdg, ...STOCK_TOKENS];
 
 const TRANSFER = id("Transfer(address,address,uint256)");
 const EXECUTED = id("Executed(uint256,bytes32)");
@@ -228,25 +221,33 @@ export async function walletOverview(input: {
   const padded = zeroPadValue(owner, 32);
 
   const tracked = new Map<string, string>();
-  for (const token of [...DEFAULT_TOKENS, ...(Array.isArray(input.tokens) ? input.tokens.slice(0, 40) : [])]) {
+  const addToken = (value: string) => {
     try {
-      tracked.set(getAddress(token).toLowerCase(), getAddress(token));
+      tracked.set(getAddress(value).toLowerCase(), getAddress(value));
     } catch {
       /* skip bad token */
     }
+  };
+  for (const token of [...DEFAULT_TOKENS, ...(Array.isArray(input.tokens) ? input.tokens.slice(0, 40) : [])]) {
+    addToken(token);
   }
+  // Official Robinhood stock / ETF tokens — balances via Multicall even if Transfer discovery misses them.
+  for (const token of await rhjStockAddresses()) addToken(token);
+  const primaryTokens = [...tracked.values()].slice(0, MAX_TOKENS);
 
-  // Discover any ERC-20 sent to the account (stocks, memes, vault shares), not just the default list.
+  // Balances run in parallel with log discovery so slow Transfer scans cannot hide stocks.
+  const balancesPromise = Promise.all([
+    provider.getBalance(owner),
+    balancesOf(provider, owner, primaryTokens),
+  ]);
+
+  // Discover any ERC-20 sent to the account (memes, vault shares), not just the default list.
   const [ownLogs, inboundLogs] = await Promise.all([
     logs(provider, { address: owner }, created, latest),
     logs(provider, { topics: [TRANSFER, null, padded] }, created, latest, DISCOVER_CHUNK),
   ]);
   for (const log of inboundLogs) {
-    try {
-      tracked.set(log.address.toLowerCase(), getAddress(log.address));
-    } catch {
-      /* skip */
-    }
+    addToken(log.address);
   }
 
   const executed = [...new Set(ownLogs.filter((log) => log.topics[0] === EXECUTED).map((log) => log.transactionHash))];
@@ -321,24 +322,67 @@ export async function walletOverview(input: {
 
   const activity = [...items.values()].sort((a, b) => b.block - a.block).slice(0, MAX_ITEMS);
   const blocks = [...new Set(activity.map((item) => item.block))];
-  const times = new Map(
-    await Promise.all(blocks.map(async (block) => [block, (await provider.getBlock(block))?.timestamp ?? 0] as const)),
-  );
+  const primaryKnown = new Set(primaryTokens.map((token) => token.toLowerCase()));
+  const extraTokens = [...tracked.values()].filter((token) => !primaryKnown.has(token.toLowerCase())).slice(0, Math.max(0, MAX_TOKENS - primaryTokens.length));
 
-  const erc20 = ["function balanceOf(address) view returns (uint256)"];
-  const tokenList = [...tracked.values()].slice(0, 60);
-  const [eth, ...tokenBalances] = await Promise.all([
-    provider.getBalance(owner),
-    ...tokenList.map((token) => new Contract(token, erc20, provider).balanceOf(owner).catch(() => null)),
+  const [[eth, primaryBalances], times, extraBalances] = await Promise.all([
+    balancesPromise,
+    Promise.all(blocks.map(async (block) => [block, (await provider.getBlock(block))?.timestamp ?? 0] as const)).then(
+      (entries) => new Map(entries),
+    ),
+    extraTokens.length ? balancesOf(provider, owner, extraTokens) : Promise.resolve([] as (bigint | null)[]),
   ]);
+
+  const tokenList = [...primaryTokens, ...extraTokens];
+  const tokenBalances = [...primaryBalances, ...extraBalances];
 
   return {
     created,
     eth: eth.toString(),
     balances: tokenList.map((token, index) => ({
       token,
-      balance: tokenBalances[index] == null ? null : tokenBalances[index].toString(),
+      balance: tokenBalances[index] == null ? null : tokenBalances[index]!.toString(),
     })),
     activity: activity.map((item) => ({ ...item, time: times.get(item.block) ?? 0 })),
   };
+}
+
+async function balancesOf(
+  provider: ReturnType<typeof connect>,
+  owner: string,
+  tokens: string[],
+): Promise<(bigint | null)[]> {
+  if (!tokens.length) return [];
+  const calls = tokens.map((token) => ({
+    target: token,
+    allowFailure: true,
+    callData: BALANCE_OF.encodeFunctionData("balanceOf", [owner]),
+  }));
+  try {
+    const multicall = new Contract(MULTICALL3, MULTICALL_ABI, provider);
+    const results: { success: boolean; returnData: string }[] = await multicall.aggregate3.staticCall(calls);
+    return results.map((result) => {
+      if (!result.success || !result.returnData || result.returnData === "0x") return null;
+      try {
+        return BALANCE_OF.decodeFunctionResult("balanceOf", result.returnData)[0] as bigint;
+      } catch {
+        return null;
+      }
+    });
+  } catch {
+    // Fallback: chunked direct balanceOf if Multicall fails.
+    const out: (bigint | null)[] = [];
+    for (let i = 0; i < tokens.length; i += 40) {
+      const batch = tokens.slice(i, i + 40);
+      const parts = await Promise.all(
+        batch.map((token) =>
+          new Contract(token, ["function balanceOf(address) view returns (uint256)"], provider)
+            .balanceOf(owner)
+            .catch(() => null),
+        ),
+      );
+      out.push(...parts);
+    }
+    return out;
+  }
 }
