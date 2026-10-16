@@ -1,4 +1,4 @@
-const APP_URL = "http://127.0.0.1:3001/";
+const APP_URL = "https://wallet.ketra.network/";
 const MIN_WIDTH = 380;
 const MIN_HEIGHT = 520;
 
