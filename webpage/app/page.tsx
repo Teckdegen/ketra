@@ -344,11 +344,17 @@ export default function Home() {
       <footer id="contact" className="relative z-10 mx-auto max-w-[1180px] px-5 pt-4 pb-10 sm:px-8">
         <div className="flex items-center justify-between gap-6 rounded-[28px] bg-white px-6 py-6 sm:px-12 sm:py-10">
           <span className="text-[15px] font-bold tracking-[-0.04em] italic">KETRA</span>
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e4e4e4] text-[#111]" aria-label="X">
+          <a
+            href="https://x.com/ketranetwork"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e4e4e4] text-[#111] hover:bg-[#f4f4f4]"
+            aria-label="Ketra on X"
+          >
             <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
               <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
             </svg>
-          </span>
+          </a>
         </div>
       </footer>
     </div>
