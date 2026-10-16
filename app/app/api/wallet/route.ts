@@ -7,7 +7,7 @@ import { isAddress, tokenById, type Token } from "@/lib/tokens";
 import { walletOverview, type WalletRaw } from "@/lib/wallet-overview";
 import type { ActivityItem, WalletAsset, WalletOverview } from "@/lib/wallet-types";
 
-const CACHE_TTL = 15 * 1000;
+const CACHE_TTL = 5 * 1000;
 
 const created = new Map<string, number>();
 const cache = new Map<string, { at: number; overview: WalletOverview }>();

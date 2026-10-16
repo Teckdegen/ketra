@@ -38,7 +38,7 @@ function usePosition(kind: "morpho" | "steakhouse") {
         });
     };
     load();
-    const timer = setInterval(load, 10_000);
+    const timer = setInterval(load, 5_000);
     const onFocus = () => load();
     window.addEventListener("focus", onFocus);
     return () => {

@@ -8,7 +8,8 @@ import { readWallets } from "./wallets";
 type Snapshot = { account: string; data: WalletOverview | null; error: string; loading: boolean };
 
 const SERVER: Snapshot = { account: "", data: null, error: "", loading: false };
-const STALE_MS = 10 * 1000;
+const STALE_MS = 5 * 1000;
+const POLL_MS = 5 * 1000;
 const listeners = new Set<() => void>();
 let state: Snapshot = SERVER;
 let inflight: Promise<void> | null = null;
@@ -57,8 +58,10 @@ export function refreshWallet(fresh = false): Promise<void> {
     emit({ account: "", data: null, loading: false, error: "" });
     return Promise.resolve();
   }
-  if (inflight && !fresh) return inflight;
-  emit({ account, loading: true, error: "", data: state.account === account ? state.data : null });
+  // Coalesce in-flight reads so a 5s poll never stacks RPC calls.
+  if (inflight) return inflight;
+  const keep = state.account === account ? state.data : null;
+  emit({ account, loading: !keep, error: "", data: keep });
   const request = fetch("/api/wallet", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -93,12 +96,13 @@ export function useWallet() {
   const snapshot = useSyncExternalStore(subscribe, () => state, () => SERVER);
   useEffect(() => {
     const account = activeAccount();
-    if (!state.data || state.account !== account || Date.now() - state.data.updated > STALE_MS) void refreshWallet();
+    if (!state.data || state.account !== account || Date.now() - state.data.updated > STALE_MS) void refreshWallet(true);
     const onFocus = () => {
-      if (!state.data || Date.now() - state.data.updated > STALE_MS) void refreshWallet();
+      if (!state.data || Date.now() - state.data.updated > STALE_MS) void refreshWallet(true);
     };
     window.addEventListener("focus", onFocus);
-    const timer = setInterval(() => void refreshWallet(), 10 * 1000);
+    // Quiet background refresh so balances and activity stay current without a full page reload.
+    const timer = setInterval(() => void refreshWallet(true), POLL_MS);
     return () => {
       window.removeEventListener("focus", onFocus);
       clearInterval(timer);

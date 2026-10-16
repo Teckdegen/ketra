@@ -71,7 +71,7 @@ export function SupplyBoard({ rows }: { rows: ListedMarket[] }) {
         });
     };
     load(true);
-    const timer = setInterval(() => load(false), 10_000);
+    const timer = setInterval(() => load(false), 5_000);
     const onFocus = () => load(false);
     window.addEventListener("focus", onFocus);
     return () => {
