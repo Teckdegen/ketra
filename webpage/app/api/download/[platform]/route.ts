@@ -8,10 +8,10 @@ const BASE = `https://github.com/Teckdegen/ketra/releases/download/${RELEASE}`;
 const FILES = {
   mac: "Ketra-macOS.dmg",
   windows: "Ketra-Setup.exe",
-  linux: "Ketra-linux.AppImage",
+  linux: "Ketra.deb",
 } as const;
 
-/** Release assets. Windows NSIS installer, Linux AppImage, macOS DMG when published. */
+/** Release assets. Windows NSIS installer, Linux .deb installer, macOS DMG when published. */
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
   mac: false,
   windows: true,

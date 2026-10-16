@@ -557,7 +557,7 @@ export function Docs() {
                     <tr>
                       <td>Linux desktop</td>
                       <td>Live</td>
-                      <td>x64 AppImage, glibc based distros</td>
+                      <td>Ubuntu/Debian x64 .deb installer (Ketra)</td>
                     </tr>
                     <tr>
                       <td>macOS desktop</td>

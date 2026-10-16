@@ -64,18 +64,29 @@
     },
     "linux": {
       "target": [
-        "AppImage"
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "category": "Finance",
       "icon": "icon-512.png",
-      "executableName": "Ketra",
-      "synopsis": "Quantum resistant wallet on Robinhood Chain"
+      "executableName": "ketra",
+      "synopsis": "Quantum resistant wallet. Assets sit on a smart account. Only an MLDSA44 signature can move them. Live on Robinhood Chain.",
+      "maintainer": "Ketra <hello@ketra.network>",
+      "vendor": "Ketra"
+    },
+    "deb": {
+      "artifactName": "Ketra.deb",
+      "packageName": "ketra",
+      "priority": "optional",
+      "afterInstall": "scripts/linux-after-install.sh",
+      "afterRemove": "scripts/linux-after-remove.sh"
     },
     "dmg": {
       "artifactName": "Ketra-macOS.dmg"
-    },
-    "appImage": {
-      "artifactName": "Ketra-linux.AppImage"
     }
   },
   "devDependencies": {

@@ -42,17 +42,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install and build AppImage
+      - name: Install Debian packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg rpm
+      - name: Install and build Linux .deb installer
         working-directory: desktop app
         run: |
           npm install
-          npx electron-builder --linux AppImage --x64
+          chmod +x scripts/linux-after-install.sh scripts/linux-after-remove.sh
+          npx electron-builder --linux deb --x64
           ls -la dist
-      - name: Upload Linux AppImage to release
+      - name: Upload Linux installer to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.1.0
-          files: desktop app/dist/Ketra-linux.AppImage
+          files: desktop app/dist/Ketra.deb
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
