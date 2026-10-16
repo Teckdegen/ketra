@@ -18,7 +18,7 @@ jobs:
       - name: Install and build AppImage
         working-directory: desktop app
         run: |
-          npm ci
+          npm install
           npx electron-builder --linux AppImage --x64
       - name: Upload Linux AppImage to release
         uses: softprops/action-gh-release@v2
@@ -39,7 +39,7 @@ jobs:
       - name: Install and build DMG
         working-directory: desktop app
         run: |
-          npm ci
+          npm install
           npx electron-builder --mac dmg --arm64
           ls -la dist
       - name: Upload macOS DMG to release
