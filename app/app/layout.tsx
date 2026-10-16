@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { Shell } from "./shell";
 
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             __html: `try{if(window.top!==window.self)document.documentElement.classList.add("ketra-embed")}catch(e){}`,
           }}
         />
-        <Shell>{children}</Shell>
+        <Suspense fallback={<div className="min-h-screen">{children}</div>}>
+          <Shell>{children}</Shell>
+        </Suspense>
       </body>
     </html>
   );

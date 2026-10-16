@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { getMarket, getSteakhouse } from "@/lib/morpho";
 import { MarketView } from "../../vault/ui";
 
+export const instant = false;
+
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   return (
     <Suspense fallback={<p className="text-[14px] text-[#8a8a8a]">Loading this market from Morpho.</p>}>
