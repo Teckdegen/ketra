@@ -2,7 +2,6 @@ import { allow } from "@/lib/limit";
 import { createAccount, safeError } from "@/lib/create-account";
 
 export const maxDuration = 60;
-export const runtime = "nodejs";
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status });
