@@ -8,7 +8,8 @@ import {
   addWallet,
   clearOrphanLock,
   clearWallets,
-  hasDeviceAccount,
+  hasDeviceWallet,
+  hasLock,
   protectWallets,
   rememberAddress,
   unlock,
@@ -84,8 +85,8 @@ export default function Welcome() {
       return;
     }
     setError("");
-    const existing = hasDeviceAccount();
-    if (!existing) clearOrphanLock();
+    clearOrphanLock();
+    const existing = hasLock();
 
     if (existing) {
       setBusy("Checking the password");
@@ -110,7 +111,6 @@ export default function Welcome() {
     try {
       address = await addressFor(parsed.seed);
     } catch (error) {
-      clearOrphanLock();
       setBusy("");
       setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
       return;
@@ -238,7 +238,7 @@ export default function Welcome() {
         {mode === "password" ? (
           <form onSubmit={savePassword}>
             <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
-              {hasDeviceAccount()
+              {hasLock()
                 ? "Enter the 6-character password to save this wallet."
                 : "Set a 6-character password. It is saved only after the account is created."}
             </p>
@@ -252,7 +252,7 @@ export default function Welcome() {
               placeholder="6 characters"
               className="glass-field mt-6 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
             />
-            {hasDeviceAccount() ? null : (
+            {hasLock() ? null : (
               <input
                 value={confirm}
                 onChange={(event) => setConfirm(event.target.value)}
@@ -267,7 +267,7 @@ export default function Welcome() {
             <button type="submit" disabled={Boolean(busy)} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
               {busy || "Continue"}
             </button>
-            {hasDeviceAccount() ? (
+            {hasLock() ? (
               forgetConfirm ? (
                 <div className="mt-4 text-left">
                   <p className="text-[13px] leading-5 text-[#8a8a8a]">

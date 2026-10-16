@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
-import { addWallet, clearOrphanLock, hasDeviceAccount, protectWallets, rememberAddress, unlock } from "@/lib/wallets";
+import { addWallet, clearOrphanLock, hasLock, protectWallets, rememberAddress, unlock } from "@/lib/wallets";
 import { SeedPhraseEntry, SeedPhraseView } from "../seed-phrase";
 
 async function addressFor(seedHex: string) {
@@ -82,8 +82,8 @@ export default function AddWallet() {
       return;
     }
     setError("");
-    const existing = hasDeviceAccount();
-    if (!existing) clearOrphanLock();
+    clearOrphanLock();
+    const existing = hasLock();
 
     if (existing) {
       setBusy("Checking the password");
@@ -108,7 +108,6 @@ export default function AddWallet() {
     try {
       address = await addressFor(parsed.seed);
     } catch (error) {
-      clearOrphanLock();
       setBusy("");
       setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
       return;
@@ -207,7 +206,7 @@ export default function AddWallet() {
       {mode === "password" ? (
         <form onSubmit={savePassword} className="glass rounded-[32px] px-6 py-8">
           <p className="text-center text-[14px] leading-6 text-[#6a6a6a]">
-            {hasDeviceAccount()
+            {hasLock()
               ? "Enter the 6-character password to save this wallet."
               : "Set a 6-character password. It is saved only after the account is created."}
           </p>
@@ -221,7 +220,7 @@ export default function AddWallet() {
             placeholder="6 characters"
             className="glass-field mt-5 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
           />
-          {hasDeviceAccount() ? null : (
+          {hasLock() ? null : (
             <input
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}

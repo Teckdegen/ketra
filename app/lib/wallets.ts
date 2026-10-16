@@ -138,22 +138,32 @@ export function rememberAddress(id: string, address: string) {
   return state;
 }
 
+function walletPresent(wallet: SavedWallet) {
+  return Boolean(wallet.address) || /^[0-9a-f]{64}$/.test(wallet.seed) || Boolean(wallet.secret);
+}
+
+/** True when this browser has any wallet material (seed, sealed seed, or on-chain address). */
+export function hasDeviceWallet() {
+  return readWallets().wallets.some(walletPresent);
+}
+
+/** True when at least one wallet already has an on-chain account address. */
 export function hasDeviceAccount() {
   return readWallets().wallets.some((wallet) => Boolean(wallet.address));
 }
 
-/** If a password was saved but no on-chain account exists, wipe the orphan lock so a new password can be set. */
+/**
+ * Wipe a password only when it is truly orphaned: a lock exists but this device
+ * has no wallet seed/secret/address at all. Never delete wallets that still have a seed.
+ */
 export function clearOrphanLock() {
-  if (hasDeviceAccount()) return false;
+  if (hasDeviceWallet()) return false;
+  if (!hasLock()) return false;
   clearLock();
   const state = readWallets();
-  const kept = state.wallets.filter((wallet) => Boolean(wallet.address));
-  if (kept.length !== state.wallets.length) {
+  if (state.wallets.length) {
     memory.clear();
-    for (const wallet of kept) {
-      if (wallet.seed) memory.set(wallet.id, { seed: wallet.seed, phrase: wallet.phrase || "" });
-    }
-    persist(kept, kept[0]?.id ?? "");
+    persist([], "");
   }
   return true;
 }
