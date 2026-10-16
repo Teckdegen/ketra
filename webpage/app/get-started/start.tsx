@@ -1,10 +1,18 @@
-"use client";
-
-import { useState } from "react";
+const RELEASE = "https://github.com/Teckdegen/ketra/releases/download/v0.1.0";
 
 const DESKTOP = {
-  windows: { label: "Windows", href: "/api/download/windows", logo: "/logos/platforms/windows.svg", note: "Installer · 10+" },
-  linux: { label: "Linux", href: "/api/download/linux", logo: "/logos/platforms/linux.svg", note: "Installer · .deb" },
+  windows: {
+    label: "Windows",
+    href: `${RELEASE}/Ketra-Setup.exe`,
+    logo: "/logos/platforms/windows.svg",
+    note: "Installer · 10+",
+  },
+  linux: {
+    label: "Linux",
+    href: `${RELEASE}/Ketra.deb`,
+    logo: "/logos/platforms/linux.svg",
+    note: "Installer · .deb",
+  },
 } as const;
 
 type DesktopTarget = keyof typeof DESKTOP;
@@ -33,37 +41,6 @@ function Soon({ label, src }: { label: string; src: string }) {
 }
 
 export function GetStarted() {
-  const [busy, setBusy] = useState<DesktopTarget | null>(null);
-  const [error, setError] = useState("");
-
-  async function download(platform: DesktopTarget) {
-    if (busy) return;
-    setBusy(platform);
-    setError("");
-    const href = DESKTOP[platform].href;
-    try {
-      const probe = await fetch(href, { method: "HEAD", redirect: "manual" });
-      if (probe.status === 404) {
-        setError(`${DESKTOP[platform].label} is not available yet.`);
-        return;
-      }
-      if (probe.status !== 200 && probe.status !== 302 && probe.status !== 301) {
-        setError("Download is unavailable right now.");
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = href;
-      link.rel = "noopener";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch {
-      setError("Download is unavailable right now.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-[#f4f4f4] text-[#111]">
       <svg
@@ -136,24 +113,20 @@ export function GetStarted() {
               <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-1">
                 <Soon label="macOS" src="/logos/platforms/apple.svg" />
                 {(Object.keys(DESKTOP) as DesktopTarget[]).map((key) => (
-                  <button
+                  <a
                     key={key}
-                    type="button"
-                    disabled={busy === key}
-                    onClick={() => void download(key)}
-                    className="flex w-[80px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6] disabled:opacity-50 sm:w-[88px]"
+                    href={DESKTOP[key].href}
+                    className="flex w-[80px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6] sm:w-[88px]"
                   >
                     <Brand src={DESKTOP[key].logo} alt={DESKTOP[key].label} />
                     <span className="text-[12px] font-medium sm:text-[13px]">{DESKTOP[key].label}</span>
-                    <span className="text-[10px] text-[#8a8a8a]">{busy === key ? "Starting…" : DESKTOP[key].note}</span>
-                  </button>
+                    <span className="text-[10px] text-[#8a8a8a]">{DESKTOP[key].note}</span>
+                  </a>
                 ))}
               </div>
             </section>
           </div>
         </div>
-
-        {error ? <p className="mt-3 text-center text-[12px] text-[#b4471c]">{error}</p> : null}
       </main>
     </div>
   );

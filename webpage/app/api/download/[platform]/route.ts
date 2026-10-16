@@ -11,7 +11,6 @@ const FILES = {
   linux: "Ketra.deb",
 } as const;
 
-/** Release assets. Windows NSIS installer, Linux .deb installer, macOS DMG when published. */
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
   mac: false,
   windows: true,
@@ -30,11 +29,15 @@ function missingMessage(platform: Platform) {
     : "That build is not published yet.";
 }
 
-/** Desktop install starts on our domain. Bytes come from the release CDN after a quiet redirect. */
+function fileUrl(platform: Platform) {
+  return `${BASE}/${FILES[platform]}`;
+}
+
+/** Prefer a direct GitHub asset URL so browsers do not chain apex → www → API → GitHub. */
 export async function HEAD(_request: Request, context: { params: Promise<{ platform: string }> }) {
   const { platform } = await context.params;
-  if (!isPlatform(platform)) return new NextResponse(null, { status: 404 });
-  return new NextResponse(null, { status: PUBLISHED[platform] ? 200 : 404 });
+  if (!isPlatform(platform) || !PUBLISHED[platform]) return new NextResponse(null, { status: 404 });
+  return NextResponse.redirect(fileUrl(platform), 302);
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ platform: string }> }) {
@@ -45,5 +48,5 @@ export async function GET(_request: Request, context: { params: Promise<{ platfo
   if (!PUBLISHED[platform]) {
     return NextResponse.json({ error: missingMessage(platform) }, { status: 404 });
   }
-  return NextResponse.redirect(`${BASE}/${FILES[platform]}`, 302);
+  return NextResponse.redirect(fileUrl(platform), 302);
 }
