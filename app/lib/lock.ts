@@ -34,6 +34,12 @@ export function endSession() {
   aes = null;
 }
 
+/** Drops the device password when no account exists on this browser. */
+export function clearLock() {
+  aes = null;
+  localStorage.removeItem(LOCK);
+}
+
 export async function unlock(password: string) {
   const raw = localStorage.getItem(LOCK);
   if (!raw || password.length !== 6) return false;

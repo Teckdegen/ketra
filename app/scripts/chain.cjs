@@ -63,7 +63,8 @@ function deployed(code) {
 
 function safeError(error, fallback) {
   const text = String(error?.shortMessage || error?.reason || error?.message || fallback);
-  if (/insufficient funds/i.test(text)) return "The gas payer needs more ETH on Robinhood Chain.";
+  if (/gas payer is not configured|PRIVATE_KEY/i.test(text)) return "The gas payer is not configured on the server.";
+  if (/insufficient funds|needs more ETH/i.test(text)) return text.replace(/0x[0-9a-fA-F]{64}/g, (match) => match).slice(0, 180);
   if (/Cannot find module|MODULE_NOT_FOUND|internal\/modules\/cjs\/loader/i.test(text)) {
     return "The wallet server is missing a dependency. Redeploy the app.";
   }

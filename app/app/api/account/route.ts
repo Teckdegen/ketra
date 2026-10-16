@@ -1,9 +1,10 @@
-import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { promisify } from "node:util";
 import { allow } from "@/lib/limit";
 
-const exec = promisify(execFile);
+export const maxDuration = 60;
+
+const require = createRequire(path.join(process.cwd(), "package.json"));
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { publicKey?: string } | null;
@@ -12,24 +13,17 @@ export async function POST(request: Request) {
   if (!allow("account", request, 5, 10 * 60 * 1000)) {
     return Response.json({ address: null, error: "Too many wallets from this connection. Try again in a few minutes." }, { status: 429 });
   }
-  const script = path.join(process.cwd(), "scripts", "create-account.cjs");
+
   try {
-    const { stdout } = await exec(process.execPath, [script, publicKey], { timeout: 180000, cwd: process.cwd() });
-    const parsed = JSON.parse(stdout) as { address?: string | null };
-    if (!parsed.address) return Response.json({ address: null }, { status: 502 });
-    return Response.json({ address: parsed.address });
+    const { createAccount } = require("./scripts/create-account.cjs") as {
+      createAccount: (key: string) => Promise<{ address: string; created: boolean }>;
+    };
+    const result = await createAccount(publicKey);
+    if (!result.address) return Response.json({ address: null, error: "The account was not created." }, { status: 502 });
+    return Response.json({ address: result.address, created: result.created });
   } catch (error) {
-    const stderr = error instanceof Error && "stderr" in error ? String((error as { stderr?: unknown }).stderr ?? "") : "";
-    const message = stderr.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || (error instanceof Error ? error.message : "");
-    const safe =
-      message &&
-      message.length < 180 &&
-      !/0x[0-9a-fA-F]{64}/i.test(message) &&
-      !/node:internal|MODULE_NOT_FOUND|Cannot find module/i.test(message)
-        ? message
-        : /gas payer|insufficient funds/i.test(message)
-          ? message
-          : "The account was not created.";
-    return Response.json({ address: null, error: safe }, { status: 502 });
+    const { safeError } = require("./scripts/chain.cjs") as { safeError: (error: unknown, fallback: string) => string };
+    const message = safeError(error, "The account was not created.");
+    return Response.json({ address: null, error: message }, { status: 502 });
   }
 }

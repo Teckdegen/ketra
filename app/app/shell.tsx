@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LockScreen } from "./lock-screen";
-import { readWallets, sessionLocked } from "@/lib/wallets";
+import { clearOrphanLock, hasDeviceAccount, readWallets, sessionLocked } from "@/lib/wallets";
 
 const items = [
   { href: "/", label: "Portfolio", icon: "grid" },
@@ -72,8 +72,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function sync() {
       if (localStorage.getItem("ketra-rail") === "closed") setOpen(false);
+      clearOrphanLock();
       const state = readWallets();
-      const hasAccount = state.wallets.some((wallet) => wallet.address);
+      const hasAccount = hasDeviceAccount();
       const active = state.wallets.find((wallet) => wallet.id === state.activeId);
       setEntered(hasAccount);
       if (!hasAccount && path !== "/start" && path !== "/create") router.replace("/create");

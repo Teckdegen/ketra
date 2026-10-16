@@ -4,7 +4,16 @@ import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
-import { addWallet, clearWallets, hasLock, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
+import {
+  addWallet,
+  clearOrphanLock,
+  clearWallets,
+  hasDeviceAccount,
+  protectWallets,
+  rememberAddress,
+  removeWallet,
+  unlock,
+} from "@/lib/wallets";
 import { SeedPhraseEntry, SeedPhraseView } from "./seed-phrase";
 
 async function addressFor(seedHex: string) {
@@ -54,6 +63,7 @@ export default function Welcome() {
       setError(parsed.error);
       return;
     }
+    clearOrphanLock();
     setSeed(parsed.phrase || parsed.seed);
     setPassword("");
     setConfirm("");
@@ -69,8 +79,11 @@ export default function Welcome() {
       return;
     }
     setError("");
-    setBusy("Saving the password");
-    if (hasLock()) {
+    const existing = hasDeviceAccount();
+    if (!existing) clearOrphanLock();
+
+    if (existing) {
+      setBusy("Checking the password");
       const ok = await unlock(password);
       if (!ok) {
         setBusy("");
@@ -78,20 +91,12 @@ export default function Welcome() {
         return;
       }
     } else if (password !== confirm) {
-      setBusy("");
       setError("Those passwords do not match.");
       return;
-    } else {
-      const message = await protectWallets(password);
-      if (message) {
-        setBusy("");
-        setError(message);
-        return;
-      }
     }
+
     const parsed = seedFromPhrase(seed);
     if ("error" in parsed) {
-      setBusy("");
       setError(parsed.error);
       return;
     }
@@ -102,16 +107,26 @@ export default function Welcome() {
       address = await addressFor(parsed.seed);
     } catch (error) {
       removeWallet(wallet.id);
+      clearOrphanLock();
       setBusy("");
       setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
       return;
     }
     rememberAddress(wallet.id, address);
+    if (!existing) {
+      const message = await protectWallets(password);
+      if (message) {
+        setBusy("");
+        setError(message);
+        return;
+      }
+    }
     setBusy("");
     enter();
   }
 
   function continueFromPhrase() {
+    clearOrphanLock();
     setPassword("");
     setConfirm("");
     setError("");
@@ -219,7 +234,9 @@ export default function Welcome() {
         {mode === "password" ? (
           <form onSubmit={savePassword}>
             <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
-              {hasLock() ? "Enter the 6-character password to save this wallet." : "Set a 6-character password. The wallet is saved after this."}
+              {hasDeviceAccount()
+                ? "Enter the 6-character password to save this wallet."
+                : "Set a 6-character password. It is saved only after the account is created."}
             </p>
             <input
               value={password}
@@ -231,7 +248,7 @@ export default function Welcome() {
               placeholder="6 characters"
               className="glass-field mt-6 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
             />
-            {hasLock() ? null : (
+            {hasDeviceAccount() ? null : (
               <input
                 value={confirm}
                 onChange={(event) => setConfirm(event.target.value)}
@@ -246,7 +263,7 @@ export default function Welcome() {
             <button type="submit" disabled={Boolean(busy)} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
               {busy || "Continue"}
             </button>
-            {hasLock() ? (
+            {hasDeviceAccount() ? (
               forgetConfirm ? (
                 <div className="mt-4 text-left">
                   <p className="text-[13px] leading-5 text-[#8a8a8a]">

@@ -1,4 +1,4 @@
-import { createLock, endSession, hasLock, openSecret, seal, sessionLocked, unlock } from "@/lib/lock";
+import { clearLock, createLock, endSession, hasLock, openSecret, seal, sessionLocked, unlock } from "@/lib/lock";
 
 export type SavedWallet = {
   id: string;
@@ -138,9 +138,30 @@ export function rememberAddress(id: string, address: string) {
   return state;
 }
 
+export function hasDeviceAccount() {
+  return readWallets().wallets.some((wallet) => Boolean(wallet.address));
+}
+
+/** If a password was saved but no on-chain account exists, wipe the orphan lock so a new password can be set. */
+export function clearOrphanLock() {
+  if (hasDeviceAccount()) return false;
+  clearLock();
+  const state = readWallets();
+  const kept = state.wallets.filter((wallet) => Boolean(wallet.address));
+  if (kept.length !== state.wallets.length) {
+    memory.clear();
+    for (const wallet of kept) {
+      if (wallet.seed) memory.set(wallet.id, { seed: wallet.seed, phrase: wallet.phrase || "" });
+    }
+    persist(kept, kept[0]?.id ?? "");
+  }
+  return true;
+}
+
 export function clearWallets() {
   memory.clear();
   endSession();
+  clearLock();
   const keys: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -183,4 +204,4 @@ export function lockApp() {
   window.dispatchEvent(new Event("ketra-lock"));
 }
 
-export { hasLock, sessionLocked, unlock };
+export { hasLock, sessionLocked, unlock, clearLock };
