@@ -6,7 +6,7 @@ const ethers = require(path.join(PROTOCOL, "node_modules", "ethers"));
 
 const RPC = process.env.KETRA_RPC || "https://rpc.mainnet.chain.robinhood.com";
 const CHAIN_ID = Number(process.env.KETRA_CHAIN_ID || 4663);
-const LEGACY_FACTORY = "0xbE8dDCBc8Ca74AA8015c62A845A468BDe8dC7651";
+const LEGACY_FACTORY = "0x72FEE9b929eCdCd7517888ce3305614B4722808c";
 
 function deployment() {
   const file = path.join(PROTOCOL, "deployments", "robinhood.json");
