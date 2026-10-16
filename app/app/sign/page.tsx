@@ -122,9 +122,18 @@ function Review() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ ...values, account: wallet.address }),
         });
-        const body = (await response.json()) as PreparedSpend & { error?: string };
+        const text = await response.text();
+        let body: PreparedSpend & { error?: string };
+        try {
+          body = text ? (JSON.parse(text) as PreparedSpend & { error?: string }) : { error: "This could not be prepared." };
+        } catch {
+          body = { error: "This could not be prepared." };
+        }
         if (cancelled) return;
-        if (!response.ok || body.error) setState({ phase: "error", message: body.error || "This could not be prepared.", wallet });
+        const message = body.error && /cjs\/loader|MODULE_NOT_FOUND|missing a dependency/i.test(body.error)
+          ? "The wallet server is still updating. Try again in a minute."
+          : body.error;
+        if (!response.ok || body.error) setState({ phase: "error", message: message || "This could not be prepared.", wallet });
         else setState({ phase: "ready", prepared: body, wallet });
       } catch {
         if (!cancelled) setState({ phase: "error", message: "Robinhood Chain did not answer.", wallet });

@@ -6,8 +6,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   serverExternalPackages: ["ethers"],
   outputFileTracingIncludes: {
-    "/api/**/*": ["./scripts/**/*", "./vendor/protocol/**/*"],
-    "/app/api/**/*": ["./scripts/**/*", "./vendor/protocol/**/*"],
+    "/*": ["./scripts/**/*", "./vendor/protocol/**/*"],
   },
   turbopack: {
     rules: {

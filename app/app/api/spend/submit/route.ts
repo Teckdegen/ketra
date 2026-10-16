@@ -1,6 +1,9 @@
 import { allow } from "@/lib/limit";
-import { runScript } from "@/lib/relay";
+import { safeError } from "@/lib/server-chain";
+import { submitSpend } from "@/lib/spend-relay";
 import type { SpendStep } from "@/lib/spend";
+
+export const maxDuration = 60;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const HEX = /^0x(?:[0-9a-fA-F]{2})*$/;
@@ -32,9 +35,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Too many transactions from this connection. Wait a moment." }, { status: 429 });
   }
   try {
-    const result = await runScript<{ hash: string; block: number }>("relay.cjs", { op: "submit", ...body });
+    const result = await submitSpend({
+      account: body!.account!,
+      nonce: body!.nonce!,
+      deadline: body!.deadline!,
+      steps: steps!,
+      signature: body!.signature!,
+    });
     return Response.json(result);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "This transaction was not sent." }, { status: 502 });
+    return Response.json({ error: safeError(error, "This transaction was not sent.") }, { status: 502 });
   }
 }

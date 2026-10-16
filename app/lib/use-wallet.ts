@@ -8,7 +8,7 @@ import { readWallets } from "./wallets";
 type Snapshot = { account: string; data: WalletOverview | null; error: string; loading: boolean };
 
 const SERVER: Snapshot = { account: "", data: null, error: "", loading: false };
-const STALE_MS = 15 * 1000;
+const STALE_MS = 10 * 1000;
 const listeners = new Set<() => void>();
 let state: Snapshot = SERVER;
 let inflight: Promise<void> | null = null;
@@ -98,7 +98,7 @@ export function useWallet() {
       if (!state.data || Date.now() - state.data.updated > STALE_MS) void refreshWallet();
     };
     window.addEventListener("focus", onFocus);
-    const timer = setInterval(() => void refreshWallet(), 30 * 1000);
+    const timer = setInterval(() => void refreshWallet(), 10 * 1000);
     return () => {
       window.removeEventListener("focus", onFocus);
       clearInterval(timer);

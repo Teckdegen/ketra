@@ -481,7 +481,7 @@ export function VaultView({ vault }: { vault: VaultSnapshot }) {
         <DepositCard
           asset={vault.assetSymbol}
           apy={vault.netApy}
-          disabled={vault.depositsDisabled}
+          disabled={false}
           kind="steakhouse"
           note="Shares come back to the account."
         />
@@ -552,7 +552,7 @@ export function MarketView({ market, vault }: { market: MarketSnapshot; vault: V
         <DepositCard
           asset={market.loanSymbol}
           apy={steakhouse ? vault?.netApy ?? market.apy : market.apy}
-          disabled={steakhouse ? Boolean(vault?.depositsDisabled) : !wired}
+          disabled={!wired && !steakhouse}
           disabledLabel={listed ? "Not wired" : "Deposits are disabled"}
           kind={wired ? "morpho" : "steakhouse"}
           note={

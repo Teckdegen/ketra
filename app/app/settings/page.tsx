@@ -11,6 +11,7 @@ import { useWallet } from "@/lib/use-wallet";
 
 function SecurityPanel() {
   const [locked, setLocked] = useState(false);
+  const [open, setOpen] = useState<"password" | "lock" | null>(null);
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -44,63 +45,98 @@ function SecurityPanel() {
     setConfirm("");
     setMessage("");
     setSaved(locked ? "Password changed." : "Password saved. It locks this device.");
+    setOpen(null);
   }
 
   return (
-    <form onSubmit={save} className="mt-3 glass rounded-[28px] px-4 py-4">
-      <p className="text-[15px] font-medium">{locked ? "Password is on" : "Password is off"}</p>
-      <p className="mt-1 text-[13px] leading-5 text-[#8a8a8a]">
-        A 6-character password locks this device. The seed phrase stays in this browser, and the password does not leave it.
-      </p>
-      {locked ? (
-        <input
-          value={current}
-          onChange={(event) => setCurrent(event.target.value)}
-          type="password"
-          maxLength={6}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Current password"
-          className="mt-4 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
-        />
+    <div className="mt-3 glass rounded-[28px] px-4">
+      <button
+        type="button"
+        onClick={() => setOpen(open === "password" ? null : "password")}
+        className="flex w-full items-center gap-3 py-4 text-left"
+      >
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11 V8 a4 4 0 0 1 8 0 v3" />
+        </svg>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px]">{locked ? "Change password" : "Set password"}</span>
+          <span className="block text-[13px] text-[#8a8a8a]">{locked ? "Password is on" : "Password is off"}</span>
+        </span>
+        <Chevron />
+      </button>
+      {open === "password" ? (
+        <form onSubmit={save} className="border-t border-white/60 pb-4">
+          <p className="pt-3 text-[13px] leading-5 text-[#8a8a8a]">
+            A 6-character password locks this device. The seed phrase stays in this browser.
+          </p>
+          {locked ? (
+            <input
+              value={current}
+              onChange={(event) => setCurrent(event.target.value)}
+              type="password"
+              maxLength={6}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Current password"
+              className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+            />
+          ) : null}
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            type="password"
+            maxLength={6}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={locked ? "New password" : "6 characters"}
+            className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+          />
+          <input
+            value={confirm}
+            onChange={(event) => setConfirm(event.target.value)}
+            type="password"
+            maxLength={6}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Repeat it"
+            className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+          />
+          {message ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{message}</p> : null}
+          {saved ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{saved}</p> : null}
+          <button type="submit" className="mt-3 rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
+            {locked ? "Save new password" : "Save password"}
+          </button>
+        </form>
       ) : null}
-      <input
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        type="password"
-        maxLength={6}
-        autoComplete="off"
-        spellCheck={false}
-        placeholder={locked ? "New password" : "6 characters"}
-        className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
-      />
-      <input
-        value={confirm}
-        onChange={(event) => setConfirm(event.target.value)}
-        type="password"
-        maxLength={6}
-        autoComplete="off"
-        spellCheck={false}
-        placeholder="Repeat it"
-        className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
-      />
-      {message ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{message}</p> : null}
-      {saved ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{saved}</p> : null}
-      <div className="mt-3 flex gap-2">
-        <button type="submit" className="rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
-          {locked ? "Change password" : "Set password"}
-        </button>
-        {locked ? (
+      {locked ? (
+        <>
           <button
             type="button"
-            onClick={() => lockApp()}
-            className="glass-field rounded-lg px-4 py-2.5 text-[13px]"
+            onClick={() => setOpen(open === "lock" ? null : "lock")}
+            className="flex w-full items-center gap-3 border-t border-white/60 py-4 text-left"
           >
-            Lock now
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M7 11 V8 a5 5 0 0 1 10 0" />
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+            </svg>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px]">Lock now</span>
+              <span className="block text-[13px] text-[#8a8a8a]">Hide seeds until the password is entered</span>
+            </span>
+            <Chevron />
           </button>
-        ) : null}
-      </div>
-    </form>
+          {open === "lock" ? (
+            <div className="border-t border-white/60 pb-4">
+              <p className="pt-3 text-[13px] leading-5 text-[#8a8a8a]">Lock this device. You will need the password to open wallets again.</p>
+              <button type="button" onClick={() => lockApp()} className="mt-3 rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
+                Lock device
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -487,7 +523,19 @@ export default function Settings() {
           </svg>
           <span className="min-w-0 flex-1">
             <span className="block text-[15px]">Balance display</span>
-            <span className="block text-[13px] text-[#8a8a8a]">{unit === "eth" ? "Shown in ETH" : "Shown in USD"}</span>
+            <span className="flex items-center gap-2 text-[13px] text-[#8a8a8a]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  unit === "eth"
+                    ? "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+                    : "https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png"
+                }
+                alt=""
+                className="h-4 w-4 rounded-full"
+              />
+              {unit === "eth" ? "Shown in ETH" : "Shown in USD"}
+            </span>
           </span>
           <Chevron />
         </button>
@@ -496,23 +544,38 @@ export default function Settings() {
             <p className="pt-3 text-[13px] leading-5 text-[#8a8a8a]">
               Tokens are quoted to ETH onchain, then ETH is priced in USD through GeckoTerminal. Pick which one the portfolio shows first.
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {(
-                [
-                  { id: "usd", label: "USD", hint: "Dollar value" },
-                  { id: "eth", label: "ETH", hint: "Ether value" },
-                ] as const
-              ).map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => chooseUnit(option.id)}
-                  className={`rounded-2xl px-4 py-3 text-left ${unit === option.id ? "bg-black text-white" : "glass-field"}`}
-                >
-                  <span className="block text-[15px] font-medium">{option.label}</span>
-                  <span className={`block text-[12px] ${unit === option.id ? "text-white/70" : "text-[#8a8a8a]"}`}>{option.hint}</span>
-                </button>
-              ))}
+            <label className="mt-3 block text-[13px] text-[#8a8a8a]" htmlFor="balance-unit">
+              Display as
+            </label>
+            <div className="relative mt-2">
+              <select
+                id="balance-unit"
+                value={unit}
+                onChange={(event) => chooseUnit(event.target.value as BalanceUnit)}
+                className="w-full appearance-none glass-field rounded-2xl py-3 pr-10 pl-12 text-[15px] font-medium outline-none"
+              >
+                <option value="usd">USD · Dollar value</option>
+                <option value="eth">ETH · Ether value</option>
+              </select>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  unit === "eth"
+                    ? "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+                    : "https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png"
+                }
+                alt=""
+                className="pointer-events-none absolute top-1/2 left-3 h-6 w-6 -translate-y-1/2 rounded-full"
+              />
+              <svg
+                viewBox="0 0 24 24"
+                className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-[#8a8a8a]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path d="M6 9 L12 15 L18 9" />
+              </svg>
             </div>
           </div>
         ) : null}

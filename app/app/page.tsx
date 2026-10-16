@@ -6,7 +6,7 @@ import { TokenLogo } from "./token-modal";
 import { displayAmount } from "@/lib/amount";
 import { formatValue, formatValueHint, useBalanceUnit } from "@/lib/display";
 import { shortAddress } from "@/lib/format";
-import { refreshWallet, useWallet } from "@/lib/use-wallet";
+import { useWallet } from "@/lib/use-wallet";
 import type { ActivityItem, ActivityKind } from "@/lib/wallet-types";
 
 const EXPLORER = "https://robinhoodchain.blockscout.com";
@@ -102,19 +102,7 @@ export default function Home() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-[1.7rem] font-medium tracking-[-0.03em]">Portfolio</h1>
-        <button
-          type="button"
-          onClick={() => void refreshWallet(true)}
-          aria-label="Refresh"
-          className="glass-field flex h-10 w-10 items-center justify-center rounded-full text-[#3a3a3a]"
-        >
-          <svg viewBox="0 0 24 24" className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.9">
-            <path d="M20 12 A8 8 0 1 1 17.7 6.3 M20 4 V9 H15" />
-          </svg>
-        </button>
-      </div>
+      <h1 className="text-[1.7rem] font-medium tracking-[-0.03em]">Portfolio</h1>
 
       <div className="mt-6 glass rounded-[28px] px-6 py-5">
         <p className="text-[13px] text-[#8a8a8a]">Total balance</p>

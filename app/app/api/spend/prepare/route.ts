@@ -2,9 +2,12 @@ import { formatAmount, parseAmount } from "@/lib/amount";
 import { resolveToken } from "@/lib/chain";
 import { allow } from "@/lib/limit";
 import { afterFee, defiFee, findRoute } from "@/lib/quote";
-import { runScript } from "@/lib/relay";
+import { safeError } from "@/lib/server-chain";
+import { prepareSpend } from "@/lib/spend-relay";
 import type { PreparedSpend, SpendKind, SpendSummary } from "@/lib/spend";
 import { tokenById, USDG_ADDRESS, WETH_ADDRESS } from "@/lib/tokens";
+
+export const maxDuration = 60;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const routeNames = { v4: "Uniswap v4", v3: "Uniswap v3", v2: "Uniswap v2", curve: "Pons bonding curve" } as const;
@@ -128,9 +131,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const prepared = await runScript<Omit<PreparedSpend, "summary">>("relay.cjs", { op: "prepare", account: body.account, plan }, 60000);
+    const prepared = await prepareSpend(body.account, plan);
     return Response.json({ ...prepared, summary } satisfies PreparedSpend);
   } catch (error) {
-    return bad(error instanceof Error ? error.message : "This could not be prepared.", 502);
+    return bad(safeError(error, "This could not be prepared."), 502);
   }
 }
