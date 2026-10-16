@@ -9,6 +9,7 @@ import {
   type Log,
   type TransactionReceipt,
 } from "ethers";
+import { blockscoutTokenBalances, blockscoutTokenTransfers } from "@/lib/blockscout";
 import { rhjStockAddresses } from "@/lib/rhj-assets";
 import { factoryAddress, factoryBlock, provider as connect } from "@/lib/server-chain";
 import { robinhood } from "@/lib/robinhood";
@@ -88,7 +89,6 @@ async function logs(
 ) {
   const windows = ranges(from, to, size);
   const out: Log[] = [];
-  // Bound concurrency so discovery across many windows does not trip the public RPC.
   for (let i = 0; i < windows.length; i += 6) {
     const batch = windows.slice(i, i + 6);
     const parts = await Promise.all(
@@ -220,41 +220,64 @@ export async function walletOverview(input: {
   const created = Number.isInteger(input.from) && (input.from ?? 0) > 0 ? input.from! : await createdBlock(provider, owner, latest);
   const padded = zeroPadValue(owner, 32);
 
+  // Blockscout PRO: holdings + token transfers (includes stock receives the RPC log scan often misses).
+  const [scoutBalances, scoutTransfers, eth] = await Promise.all([
+    blockscoutTokenBalances(owner),
+    blockscoutTokenTransfers(owner, MAX_ITEMS * 2),
+    provider.getBalance(owner),
+  ]);
+
   const tracked = new Map<string, string>();
   const addToken = (value: string) => {
     try {
       tracked.set(getAddress(value).toLowerCase(), getAddress(value));
     } catch {
-      /* skip bad token */
+      /* skip */
     }
   };
   for (const token of [...DEFAULT_TOKENS, ...(Array.isArray(input.tokens) ? input.tokens.slice(0, 40) : [])]) {
     addToken(token);
   }
-  // Official Robinhood stock / ETF tokens — balances via Multicall even if Transfer discovery misses them.
-  for (const token of await rhjStockAddresses()) addToken(token);
-  const primaryTokens = [...tracked.values()].slice(0, MAX_TOKENS);
-
-  // Balances run in parallel with log discovery so slow Transfer scans cannot hide stocks.
-  const balancesPromise = Promise.all([
-    provider.getBalance(owner),
-    balancesOf(provider, owner, primaryTokens),
-  ]);
-
-  // Discover any ERC-20 sent to the account (memes, vault shares), not just the default list.
-  const [ownLogs, inboundLogs] = await Promise.all([
-    logs(provider, { address: owner }, created, latest),
-    logs(provider, { topics: [TRANSFER, null, padded] }, created, latest, DISCOVER_CHUNK),
-  ]);
-  for (const log of inboundLogs) {
-    addToken(log.address);
+  if (scoutBalances) {
+    for (const row of scoutBalances) addToken(row.token);
+  } else {
+    for (const token of await rhjStockAddresses()) addToken(token);
   }
 
-  const executed = [...new Set(ownLogs.filter((log) => log.topics[0] === EXECUTED).map((log) => log.transactionHash))];
   const items = new Map<
     string,
-    { hash: string; block: number; kind: ActivityKind; counterparty: string | null; legs: { token: string; amount: string }[] }
+    { hash: string; block: number; time?: number; kind: ActivityKind; counterparty: string | null; legs: { token: string; amount: string }[] }
   >();
+
+  // Prefer Blockscout token transfers for receive/send of ERC-20s (stocks, memes, vault shares).
+  if (scoutTransfers) {
+    for (const transfer of scoutTransfers) {
+      const toOwner = same(transfer.to, owner);
+      const fromOwner = same(transfer.from, owner);
+      if (!toOwner && !fromOwner) continue;
+      // Skip transfers already covered as Ketra execute sends when we load own logs below — merge by hash.
+      const kind: ActivityKind = toOwner && !fromOwner ? "receive" : fromOwner && !toOwner ? "send" : "swap";
+      const amount = toOwner && !fromOwner ? transfer.amount : `-${transfer.amount}`;
+      const existing = items.get(transfer.hash);
+      if (existing) {
+        existing.legs.push({ token: transfer.token, amount });
+        if (!existing.counterparty) existing.counterparty = toOwner ? transfer.from : transfer.to;
+        continue;
+      }
+      items.set(transfer.hash, {
+        hash: transfer.hash,
+        block: transfer.block,
+        time: transfer.time,
+        kind,
+        counterparty: toOwner ? transfer.from : transfer.to,
+        legs: [{ token: transfer.token, amount }],
+      });
+    }
+  }
+
+  // Ketra account executes + native ETH receives from on-chain logs.
+  const ownLogs = await logs(provider, { address: owner }, created, latest);
+  const executed = [...new Set(ownLogs.filter((log) => log.topics[0] === EXECUTED).map((log) => log.transactionHash))];
 
   const recentExecuted = ownLogs
     .filter((log) => log.topics[0] === EXECUTED)
@@ -269,81 +292,91 @@ export async function walletOverview(input: {
       if (!tx || !receipt) return;
       for (const entry of receipt.logs) {
         if (entry.topics[0] !== TRANSFER || entry.topics.length !== 3) continue;
-        if (entry.topics[1] === padded || entry.topics[2] === padded) {
-          tracked.set(entry.address.toLowerCase(), getAddress(entry.address));
-        }
+        if (entry.topics[1] === padded || entry.topics[2] === padded) addToken(entry.address);
       }
       const summary = summarize(owner, decodeSteps(tx.data), receipt);
+      // Ketra execute summary wins over raw transfer rows for the same hash.
       items.set(log.transactionHash, { hash: log.transactionHash, block: log.blockNumber, ...summary });
     }),
   );
 
-  const incoming = new Map<
-    string,
-    { hash: string; block: number; kind: ActivityKind; legs: Map<string, bigint>; counterparty: string }
-  >();
-  for (const log of inboundLogs) {
-    if (executed.includes(log.transactionHash) || log.topics[2] !== padded) continue;
-    const entry =
-      incoming.get(log.transactionHash) ??
-      {
-        hash: log.transactionHash,
-        block: log.blockNumber,
-        kind: "receive" as const,
-        legs: new Map<string, bigint>(),
-        counterparty: topicAddress(log.topics[1]!),
-      };
-    const token = getAddress(log.address);
-    entry.legs.set(token, (entry.legs.get(token) ?? 0n) + BigInt(log.data.slice(0, 66)));
-    incoming.set(log.transactionHash, entry);
-  }
   for (const log of ownLogs) {
     if (log.topics[0] !== RECEIVED || executed.includes(log.transactionHash)) continue;
     const from = topicAddress(log.topics[1]!);
     if (same(from, WETH)) continue;
-    const entry =
-      incoming.get(log.transactionHash) ??
-      {
-        hash: log.transactionHash,
-        block: log.blockNumber,
-        kind: "receive" as const,
-        legs: new Map<string, bigint>(),
-        counterparty: from,
-      };
-    entry.legs.set("ETH", (entry.legs.get("ETH") ?? 0n) + BigInt(log.data));
-    incoming.set(log.transactionHash, entry);
-  }
-  for (const entry of incoming.values()) {
-    items.set(entry.hash, {
-      ...entry,
-      legs: [...entry.legs].map(([token, amount]) => ({ token, amount: amount.toString() })),
+    const existing = items.get(log.transactionHash);
+    if (existing) {
+      existing.legs.push({ token: "ETH", amount: BigInt(log.data).toString() });
+      continue;
+    }
+    items.set(log.transactionHash, {
+      hash: log.transactionHash,
+      block: log.blockNumber,
+      kind: "receive",
+      counterparty: from,
+      legs: [{ token: "ETH", amount: BigInt(log.data).toString() }],
     });
   }
 
+  // Fallback Transfer discovery only when Blockscout is unavailable.
+  if (!scoutTransfers) {
+    const inboundLogs = await logs(provider, { topics: [TRANSFER, null, padded] }, created, latest, DISCOVER_CHUNK);
+    for (const log of inboundLogs) addToken(log.address);
+    for (const log of inboundLogs) {
+      if (executed.includes(log.transactionHash) || log.topics[2] !== padded) continue;
+      if (items.has(log.transactionHash)) continue;
+      items.set(log.transactionHash, {
+        hash: log.transactionHash,
+        block: log.blockNumber,
+        kind: "receive",
+        counterparty: topicAddress(log.topics[1]!),
+        legs: [{ token: getAddress(log.address), amount: BigInt(log.data.slice(0, 66)).toString() }],
+      });
+    }
+  }
+
   const activity = [...items.values()].sort((a, b) => b.block - a.block).slice(0, MAX_ITEMS);
-  const blocks = [...new Set(activity.map((item) => item.block))];
-  const primaryKnown = new Set(primaryTokens.map((token) => token.toLowerCase()));
-  const extraTokens = [...tracked.values()].filter((token) => !primaryKnown.has(token.toLowerCase())).slice(0, Math.max(0, MAX_TOKENS - primaryTokens.length));
-
-  const [[eth, primaryBalances], times, extraBalances] = await Promise.all([
-    balancesPromise,
-    Promise.all(blocks.map(async (block) => [block, (await provider.getBlock(block))?.timestamp ?? 0] as const)).then(
-      (entries) => new Map(entries),
+  const needTime = activity.filter((item) => !item.time);
+  const times = new Map(
+    await Promise.all(
+      [...new Set(needTime.map((item) => item.block))].map(
+        async (block) => [block, (await provider.getBlock(block))?.timestamp ?? 0] as const,
+      ),
     ),
-    extraTokens.length ? balancesOf(provider, owner, extraTokens) : Promise.resolve([] as (bigint | null)[]),
-  ]);
+  );
 
-  const tokenList = [...primaryTokens, ...extraTokens];
-  const tokenBalances = [...primaryBalances, ...extraBalances];
+  let balances: { token: string; balance: string | null }[];
+  if (scoutBalances) {
+    const byToken = new Map(scoutBalances.map((row) => [row.token.toLowerCase(), row.balance]));
+    // Still surface extra tracked tokens the user imported (may be zero).
+    for (const token of tracked.values()) {
+      if (!byToken.has(token.toLowerCase())) byToken.set(token.toLowerCase(), "0");
+    }
+    balances = [...byToken.entries()].slice(0, MAX_TOKENS).map(([token, balance]) => ({
+      token: getAddress(token),
+      balance,
+    }));
+  } else {
+    const tokenList = [...tracked.values()].slice(0, MAX_TOKENS);
+    const tokenBalances = await balancesOf(provider, owner, tokenList);
+    balances = tokenList.map((token, index) => ({
+      token,
+      balance: tokenBalances[index] == null ? null : tokenBalances[index]!.toString(),
+    }));
+  }
 
   return {
     created,
     eth: eth.toString(),
-    balances: tokenList.map((token, index) => ({
-      token,
-      balance: tokenBalances[index] == null ? null : tokenBalances[index]!.toString(),
+    balances,
+    activity: activity.map((item) => ({
+      hash: item.hash,
+      block: item.block,
+      time: item.time || times.get(item.block) || 0,
+      kind: item.kind,
+      counterparty: item.counterparty,
+      legs: item.legs,
     })),
-    activity: activity.map((item) => ({ ...item, time: times.get(item.block) ?? 0 })),
   };
 }
 
@@ -370,7 +403,6 @@ async function balancesOf(
       }
     });
   } catch {
-    // Fallback: chunked direct balanceOf if Multicall fails.
     const out: (bigint | null)[] = [];
     for (let i = 0; i < tokens.length; i += 40) {
       const batch = tokens.slice(i, i + 40);
