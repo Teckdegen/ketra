@@ -29,7 +29,7 @@
       "target": [
         "dmg"
       ],
-      "icon": "icon.png"
+      "icon": "icon-512.png"
     },
     "win": {
       "target": [
