@@ -7,6 +7,7 @@ import { bytesToHex, hexToBytes } from "@/lib/seed";
 import { tokenById, tokens, type Token } from "@/lib/tokens";
 import { useWallet } from "@/lib/use-wallet";
 import { hydrateSeeds, rememberAddress, type SavedWallet } from "@/lib/wallets";
+import { IconShare } from "../icons";
 import { TokenLogo } from "../token-modal";
 
 async function recoverAddress(seed: string) {
@@ -165,7 +166,8 @@ export default function Receive() {
               <button type="button" onClick={() => void copy()} className="h-12 w-full rounded-full bg-black text-[15px] font-medium text-white">
                 {copied ? "Copied" : "Copy Address"}
               </button>
-              <button type="button" onClick={() => void share()} className="glass-field h-12 w-full rounded-full text-[15px] font-medium">
+              <button type="button" onClick={() => void share()} className="glass-field flex h-12 w-full items-center justify-center gap-2 rounded-full text-[15px] font-medium">
+                <IconShare className="h-5 w-5" />
                 Share
               </button>
             </div>

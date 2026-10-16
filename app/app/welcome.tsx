@@ -13,6 +13,7 @@ import {
   resetDevice,
   unlock,
 } from "@/lib/wallets";
+import { BrandMark } from "./icons";
 import { SeedPhraseEntry, SeedPhraseView } from "./seed-phrase";
 
 async function addressFor(seedHex: string) {
@@ -156,7 +157,7 @@ export default function Welcome() {
       >
         {mode === "create" || mode === "import" ? null : (
           <div className="flex items-center justify-center gap-3">
-            <img src="/icon.png" alt="" className="h-14 w-14 rounded-[16px]" />
+            <BrandMark className="h-14 w-14" />
             <p className="text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
           </div>
         )}

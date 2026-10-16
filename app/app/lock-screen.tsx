@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BrandMark } from "./icons";
 import { hydrateSeeds, resetDevice, unlock } from "@/lib/wallets";
 
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
@@ -34,7 +35,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   return (
     <div className="glass-scrim fixed inset-0 z-50 grid place-items-center overflow-hidden px-5">
       <form onSubmit={submit} className="glass w-full max-w-[420px] rounded-[32px] px-7 py-10 text-center">
-        <img src="/icon.png" alt="" className="mx-auto h-14 w-14 rounded-[16px]" />
+        <BrandMark className="mx-auto h-14 w-14" />
         <p className="mt-4 text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
         <p className="mx-auto mt-6 max-w-[280px] text-[15px] leading-6 text-[#6a6a6a]">Enter the 6-character password for this device.</p>
         <input

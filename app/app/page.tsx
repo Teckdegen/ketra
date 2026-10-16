@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { IconReceive, IconSend, IconSwap } from "./icons";
 import { TokenLogo } from "./token-modal";
 import { displayAmount } from "@/lib/amount";
 import { formatValue, formatValueHint, useBalanceUnit } from "@/lib/display";
@@ -124,12 +125,18 @@ export default function Home() {
           </>
         )}
         {data ? (
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <Link href="/receive" className="flex h-11 items-center justify-center rounded-full bg-black text-[14px] font-medium text-white">
-              Receive
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <Link href="/send" className="glass-field flex flex-col items-center justify-center gap-1.5 rounded-[22px] py-3.5 text-[#111]">
+              <IconSend className="h-6 w-6" />
+              <span className="text-[13px] font-medium">Send</span>
             </Link>
-            <Link href="/send" className="glass-field flex h-11 items-center justify-center rounded-full text-[14px] font-medium">
-              Send
+            <Link href="/receive" className="glass-field flex flex-col items-center justify-center gap-1.5 rounded-[22px] py-3.5 text-[#111]">
+              <IconReceive className="h-6 w-6" />
+              <span className="text-[13px] font-medium">Receive</span>
+            </Link>
+            <Link href="/swap" className="glass-field flex flex-col items-center justify-center gap-1.5 rounded-[22px] py-3.5 text-[#111]">
+              <IconSwap className="h-6 w-6" />
+              <span className="text-[13px] font-medium">Swap</span>
             </Link>
           </div>
         ) : null}
@@ -177,7 +184,8 @@ export default function Home() {
               <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-black text-[13px] font-medium text-white">K</span>
               <h2 className="mt-5 text-[18px] font-medium tracking-[-0.02em]">Fund the account to get started</h2>
               <p className="mx-auto mt-2 max-w-sm text-[14px] leading-6 text-[#8a8a8a]">ETH and tokens show up here after they reach the account.</p>
-              <Link href="/receive" className="mt-6 inline-block rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
+              <Link href="/receive" className="mt-6 inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-[13px] font-medium text-white">
+                <IconReceive className="h-4 w-4" />
                 Receive
               </Link>
             </div>
