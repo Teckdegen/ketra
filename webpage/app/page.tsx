@@ -345,7 +345,7 @@ export default function Home() {
         <div className="flex items-center justify-between gap-6 rounded-[28px] bg-white px-6 py-6 sm:px-12 sm:py-10">
           <span className="text-[15px] font-bold tracking-[-0.04em] italic">KETRA</span>
           <a
-            href="https://x.com/ketranetwork"
+            href="https://x.com/ketra_network"
             target="_blank"
             rel="noopener noreferrer"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e4e4e4] text-[#111] hover:bg-[#f4f4f4]"
