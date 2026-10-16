@@ -15,9 +15,26 @@ import type { ActivityKind } from "@/lib/wallet-types";
 
 const coder = AbiCoder.defaultAbiCoder();
 const CHUNK = 9_000_000;
+/** Smaller windows for chain-wide Transfer discovery (no contract address filter). */
+const DISCOVER_CHUNK = 200_000;
 const MAX_ITEMS = 40;
 const WETH = robinhood.weth;
-const DEFAULT_TOKENS = [WETH, robinhood.usdg, robinhood.steakUsdg];
+/** Borro stock vault share tokens on Robinhood Chain (SPY, QQQ, NVDA, …). */
+const STOCK_TOKENS = [
+  "0xC3ED4a5A7dB4102F4Ed37Af26ef0d3f21e2360c1", // SPY / bSPY
+  "0xbAD8A97dA1050092d6a14194D53E72D407D6cc17", // QQQ
+  "0x508E23274C39C60c345e35B1f0188bE180717CB9", // NVDA
+  "0x60b3d353E7e5bD12ED4Ea2589C11B5603dd4c988", // TSLA
+  "0x2B74f8F2b76cd4e97265BC37FB2578a04B8437e9", // MSTR
+  "0x7BA71BCCeCb12860aE7E141B6b6F1f8B96d31257", // COIN
+  "0xFE9419E70e5481F7a2dDddc18f856b09b3687B27", // PLTR
+  "0x1261210E19052157fCe2064D9aa9A2140Bd89791", // SPCX
+  "0x328461fB01F54C2Ab73909EA947c583d0dC24C3d", // GME
+  "0x24Fe7bCAEB75bC2202A42ECD48a177a27782c64a", // AAPL
+  "0xf0731B1022ABD1e3f543Cfd837C7eBA42ED60E4f", // GOOGL
+  "0x8032C80a7817a3C4C401b096515B27b2CedA4e71", // MSFT
+];
+const DEFAULT_TOKENS = [WETH, robinhood.usdg, robinhood.steakUsdg, ...STOCK_TOKENS];
 
 const TRANSFER = id("Transfer(address,address,uint256)");
 const EXECUTED = id("Executed(uint256,bytes32)");
@@ -63,9 +80,9 @@ function topicAddress(topic: string) {
   return getAddress(`0x${topic.slice(26)}`);
 }
 
-function ranges(from: number, to: number) {
+function ranges(from: number, to: number, size = CHUNK) {
   const out: [number, number][] = [];
-  for (let end = to; end >= from; end -= CHUNK) out.push([Math.max(from, end - CHUNK + 1), end]);
+  for (let end = to; end >= from; end -= size) out.push([Math.max(from, end - size + 1), end]);
   return out;
 }
 
@@ -74,11 +91,21 @@ async function logs(
   filter: { address?: string; topics?: (string | null)[] },
   from: number,
   to: number,
+  size = CHUNK,
 ) {
-  const parts = await Promise.all(
-    ranges(from, to).map(([fromBlock, toBlock]) => provider.getLogs({ ...filter, fromBlock, toBlock })),
-  );
-  return parts.flat();
+  const windows = ranges(from, to, size);
+  const out: Log[] = [];
+  // Bound concurrency so discovery across many windows does not trip the public RPC.
+  for (let i = 0; i < windows.length; i += 6) {
+    const batch = windows.slice(i, i + 6);
+    const parts = await Promise.all(
+      batch.map(([fromBlock, toBlock]) =>
+        provider.getLogs({ ...filter, fromBlock, toBlock }).catch(() => [] as Log[]),
+      ),
+    );
+    out.push(...parts.flat());
+  }
+  return out;
 }
 
 async function createdBlock(provider: ReturnType<typeof connect>, owner: string, latest: number) {
@@ -209,13 +236,18 @@ export async function walletOverview(input: {
     }
   }
 
-  const [ownLogs, ...tokenLogs] = await Promise.all([
+  // Discover any ERC-20 sent to the account (stocks, memes, vault shares), not just the default list.
+  const [ownLogs, inboundLogs] = await Promise.all([
     logs(provider, { address: owner }, created, latest),
-    ...[...tracked.values()].flatMap((token) => [
-      logs(provider, { address: token, topics: [TRANSFER, null, padded] }, created, latest),
-      logs(provider, { address: token, topics: [TRANSFER, padded] }, created, latest),
-    ]),
+    logs(provider, { topics: [TRANSFER, null, padded] }, created, latest, DISCOVER_CHUNK),
   ]);
+  for (const log of inboundLogs) {
+    try {
+      tracked.set(log.address.toLowerCase(), getAddress(log.address));
+    } catch {
+      /* skip */
+    }
+  }
 
   const executed = [...new Set(ownLogs.filter((log) => log.topics[0] === EXECUTED).map((log) => log.transactionHash))];
   const items = new Map<
@@ -249,7 +281,7 @@ export async function walletOverview(input: {
     string,
     { hash: string; block: number; kind: ActivityKind; legs: Map<string, bigint>; counterparty: string }
   >();
-  for (const log of tokenLogs.flat()) {
+  for (const log of inboundLogs) {
     if (executed.includes(log.transactionHash) || log.topics[2] !== padded) continue;
     const entry =
       incoming.get(log.transactionHash) ??
