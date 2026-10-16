@@ -5,7 +5,15 @@ import { useState } from "react";
 import { IconReceive, IconSend, IconSwap } from "./icons";
 import { TokenLogo } from "./token-modal";
 import { displayAmount } from "@/lib/amount";
-import { formatValue, formatValueHint, useBalanceUnit } from "@/lib/display";
+import {
+  formatValue,
+  formatValueHint,
+  maskAmount,
+  toggleBalanceHidden,
+  useBalanceHidden,
+  useBalanceUnit,
+  useLongPressToggle,
+} from "@/lib/display";
 import { shortAddress } from "@/lib/format";
 import { useWallet } from "@/lib/use-wallet";
 import type { ActivityItem, ActivityKind } from "@/lib/wallet-types";
@@ -50,7 +58,7 @@ function ago(seconds: number) {
   return new Date(seconds * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function Row({ item }: { item: ActivityItem }) {
+function Row({ item, hide }: { item: ActivityItem; hide: boolean }) {
   const lead = item.legs.find((leg) => leg.amount.startsWith("-")) ?? item.legs[0];
   const subtitle =
     item.kind === "send" && item.counterparty
@@ -83,12 +91,15 @@ function Row({ item }: { item: ActivityItem }) {
         </span>
       </span>
       <span className="shrink-0 text-right">
-        {item.legs.slice(0, 2).map((leg) => (
-          <span key={leg.token.id} className={`block text-[14px] font-medium ${leg.amount.startsWith("-") ? "" : "text-[#1a7f4b]"}`}>
-            {leg.amount.startsWith("-") ? "−" : "+"}
-            {displayAmount(leg.amount.replace(/^-/, ""))} {leg.token.symbol}
-          </span>
-        ))}
+        {item.legs.slice(0, 2).map((leg) => {
+          const amount = displayAmount(leg.amount.replace(/^-/, ""));
+          return (
+            <span key={leg.token.id} className={`block text-[14px] font-medium ${leg.amount.startsWith("-") ? "" : "text-[#1a7f4b]"}`}>
+              {leg.amount.startsWith("-") ? "−" : "+"}
+              {hide ? maskAmount(amount) : amount} {leg.token.symbol}
+            </span>
+          );
+        })}
       </span>
     </a>
   );
@@ -98,8 +109,12 @@ export default function Home() {
   const [tab, setTab] = useState<"tokens" | "activity">("tokens");
   const { data, loading, error } = useWallet();
   const unit = useBalanceUnit();
+  const hide = useBalanceHidden();
+  const longPress = useLongPressToggle(toggleBalanceHidden);
   const assets = data?.assets ?? [];
   const funded = assets.some((asset) => asset.balance !== "0");
+  const total = data ? formatValue(data.totalUsd, data.totalEth, unit) : formatValue(0, 0, unit);
+  const hint = data ? formatValueHint(data.totalUsd, data.totalEth, unit) : "";
 
   return (
     <div>
@@ -109,18 +124,24 @@ export default function Home() {
         <p className="text-[13px] text-[#8a8a8a]">Total balance</p>
         {data ? (
           <>
-            <p className="mt-3 text-[2.6rem] leading-none font-medium tracking-[-0.04em]">
-              {formatValue(data.totalUsd, data.totalEth, unit)}
+            <p
+              className="mt-3 select-none text-[2.6rem] leading-none font-medium tracking-[-0.04em] touch-manipulation"
+              title="Long press to hide or show balance"
+              {...longPress}
+            >
+              {hide ? maskAmount(total) : total}
             </p>
-            {formatValueHint(data.totalUsd, data.totalEth, unit) ? (
-              <p className="mt-2 text-[14px] text-[#8a8a8a]">{formatValueHint(data.totalUsd, data.totalEth, unit)}</p>
+            {hint ? (
+              <p className="mt-2 select-none text-[14px] text-[#8a8a8a]" {...longPress}>
+                {hide ? maskAmount(hint) : hint}
+              </p>
             ) : null}
           </>
         ) : loading ? (
           <span className="sign-shimmer mt-3 block h-10 w-44 rounded-2xl" />
         ) : (
           <>
-            <p className="mt-3 text-[2.6rem] leading-none font-medium tracking-[-0.04em]">{formatValue(0, 0, unit)}</p>
+            <p className="mt-3 text-[2.6rem] leading-none font-medium tracking-[-0.04em]">{hide ? maskAmount(total) : total}</p>
             {error ? <p className="mt-3 text-[13px] text-[#8a8a8a]">Could not refresh · showing 0</p> : null}
           </>
         )}
@@ -165,19 +186,23 @@ export default function Home() {
         ) : tab === "tokens" ? (
           funded ? (
             <div className="mt-3">
-              {assets.map((asset) => (
-                <div key={asset.token.id} className="flex items-center gap-3 rounded-2xl px-2 py-3">
-                  <TokenLogo token={asset.token} className="h-11 w-11" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-medium">{asset.token.symbol}</span>
-                    <span className="block truncate text-[13px] text-[#8a8a8a]">{asset.token.name}</span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block text-[15px] font-medium">{displayAmount(asset.balance)}</span>
-                    <span className="block text-[13px] text-[#8a8a8a]">{formatValue(asset.usd, asset.eth, unit)}</span>
-                  </span>
-                </div>
-              ))}
+              {assets.map((asset) => {
+                const amount = displayAmount(asset.balance);
+                const value = formatValue(asset.usd, asset.eth, unit);
+                return (
+                  <div key={asset.token.id} className="flex items-center gap-3 rounded-2xl px-2 py-3">
+                    <TokenLogo token={asset.token} className="h-11 w-11" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium">{asset.token.symbol}</span>
+                      <span className="block truncate text-[13px] text-[#8a8a8a]">{asset.token.name}</span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-[15px] font-medium">{hide ? maskAmount(amount) : amount}</span>
+                      <span className="block text-[13px] text-[#8a8a8a]">{hide ? maskAmount(value) : value}</span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="px-2 py-12 text-center">
@@ -193,7 +218,7 @@ export default function Home() {
         ) : data.activity.length ? (
           <div className="mt-3">
             {data.activity.map((item) => (
-              <Row key={item.hash} item={item} />
+              <Row key={item.hash} item={item} hide={hide} />
             ))}
           </div>
         ) : (
