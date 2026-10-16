@@ -6,12 +6,12 @@ const CHROME_STORE =
   process.env.NEXT_PUBLIC_CHROME_STORE_URL || "https://chromewebstore.google.com/detail/ketra";
 
 const DESKTOP = {
-  mac: { label: "macOS", href: "/api/download/mac", logo: "/logos/platforms/apple.svg" },
-  windows: { label: "Windows", href: "/api/download/windows", logo: "/logos/platforms/windows.svg" },
-  linux: { label: "Linux", href: "/api/download/linux", logo: "/logos/platforms/linux.svg" },
+  mac: { label: "macOS", href: "/api/download/mac", logo: "/logos/platforms/apple.svg", note: "macOS 12+" },
+  windows: { label: "Windows", href: "/api/download/windows", logo: "/logos/platforms/windows.svg", note: "Windows 10+" },
+  linux: { label: "Linux", href: "/api/download/linux", logo: "/logos/platforms/linux.svg", note: "x64 AppImage" },
 } as const;
 
-type DesktopTarget = keyof typeof DESKTOP | null;
+type DesktopTarget = keyof typeof DESKTOP;
 
 function Brand({ src, alt, dimmed = false }: { src: string; alt: string; dimmed?: boolean }) {
   return (
@@ -37,29 +37,18 @@ function Soon({ label, src }: { label: string; src: string }) {
 }
 
 export function GetStarted() {
-  const [target, setTarget] = useState<DesktopTarget>(null);
-  const [accepted, setAccepted] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<DesktopTarget | null>(null);
   const [error, setError] = useState("");
 
-  function beginDesktop(next: DesktopTarget) {
-    setTarget(next);
-    setAccepted(false);
+  async function download(platform: DesktopTarget) {
+    if (busy) return;
+    setBusy(platform);
     setError("");
-  }
-
-  async function confirmDownload() {
-    if (!accepted || !target || busy) return;
-    setBusy(true);
-    setError("");
-    const href = DESKTOP[target].href;
+    const href = DESKTOP[platform].href;
     try {
       const probe = await fetch(href, { method: "HEAD", redirect: "manual" });
       if (probe.status === 404) {
-        const body = (await fetch(href, { redirect: "manual" }).then((response) => response.json().catch(() => null))) as {
-          error?: string;
-        } | null;
-        setError(body?.error || "Download is unavailable right now.");
+        setError(`${DESKTOP[platform].label} is not available yet.`);
         return;
       }
       if (probe.status !== 200 && probe.status !== 302 && probe.status !== 301) {
@@ -72,12 +61,10 @@ export function GetStarted() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setTarget(null);
-      setAccepted(false);
     } catch {
       setError("Download is unavailable right now.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -101,23 +88,17 @@ export function GetStarted() {
           <a href="/" className="mr-2 text-[13px] font-bold tracking-[-0.04em] italic sm:mr-3">
             KETRA
           </a>
-          <a href="/docs" className="rounded-full px-3 py-2 text-[13px] font-medium text-[#1c1c1c] hover:bg-black/5">
+          <a href="/docs" className="rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]">
             Docs
-          </a>
-          <a
-            href="https://wallet.ketra.network"
-            className="ml-1 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
-          >
-            Web wallet
           </a>
         </nav>
       </header>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-[920px] flex-1 flex-col justify-center px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
+      <main className="relative z-10 mx-auto flex w-full max-w-[960px] flex-1 flex-col justify-center px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
         <div className="text-center">
           <h1 className="text-[1.85rem] leading-none font-medium tracking-[-0.04em] text-black sm:text-[2.35rem]">Get started</h1>
-          <p className="mx-auto mt-2 max-w-[46ch] text-[13px] leading-5 text-[#8a8a8a] sm:text-[14px]">
-            Chrome and desktop for macOS, Windows, and Linux are ready. Brave, Edge, and mobile are coming soon.
+          <p className="mx-auto mt-2 max-w-[48ch] text-[13px] leading-5 text-[#8a8a8a] sm:text-[14px]">
+            Web wallet, Chrome, and desktop for macOS 12+, Windows 10+, and Linux x64. Brave, Edge, and mobile are coming soon.
           </p>
         </div>
 
@@ -140,28 +121,43 @@ export function GetStarted() {
             </div>
           </section>
 
-          <div className="grid gap-3 sm:grid-cols-2 sm:gap-3.5">
-            <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
+          <div className="grid gap-3 sm:grid-cols-3 sm:gap-3.5">
+            <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-5 sm:py-5">
+              <h2 className="text-center text-[13px] font-semibold tracking-[-0.02em]">Web</h2>
+              <div className="mt-3 flex justify-center sm:mt-4">
+                <a
+                  href="https://wallet.ketra.network"
+                  className="flex w-[100px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6]"
+                >
+                  <Brand src="/logos/platforms/web.svg" alt="Web wallet" />
+                  <span className="text-[12px] font-medium sm:text-[13px]">Web wallet</span>
+                  <span className="text-[10px] text-[#8a8a8a]">Open</span>
+                </a>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-5 sm:py-5">
               <h2 className="text-center text-[13px] font-semibold tracking-[-0.02em]">Mobile</h2>
-              <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-4">
+              <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-3">
                 <Soon label="App Store" src="/logos/platforms/appstore.svg" />
                 <Soon label="Google Play" src="/logos/platforms/play.svg" />
               </div>
             </section>
 
-            <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
+            <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-5 sm:py-5">
               <h2 className="text-center text-[13px] font-semibold tracking-[-0.02em]">Desktop</h2>
-              <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-2">
-                {(Object.keys(DESKTOP) as Array<keyof typeof DESKTOP>).map((key) => (
+              <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-1">
+                {(Object.keys(DESKTOP) as DesktopTarget[]).map((key) => (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => beginDesktop(key)}
-                    className="flex w-[84px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6] sm:w-[96px]"
+                    disabled={busy === key}
+                    onClick={() => void download(key)}
+                    className="flex w-[80px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6] disabled:opacity-50 sm:w-[88px]"
                   >
                     <Brand src={DESKTOP[key].logo} alt={DESKTOP[key].label} />
                     <span className="text-[12px] font-medium sm:text-[13px]">{DESKTOP[key].label}</span>
-                    <span className="text-[10px] text-[#8a8a8a]">Download</span>
+                    <span className="text-[10px] text-[#8a8a8a]">{busy === key ? "Starting…" : DESKTOP[key].note}</span>
                   </button>
                 ))}
               </div>
@@ -169,62 +165,8 @@ export function GetStarted() {
           </div>
         </div>
 
-        <p className="mt-3 text-center text-[12px] text-[#9a9a9a] sm:mt-4">
-          Desktop installs ask you to accept that Ketra is a wallet.{" "}
-          <a href="/terms" className="underline decoration-[#ccc] underline-offset-2 hover:decoration-[#111]">
-            Terms of Service
-          </a>
-        </p>
+        {error ? <p className="mt-3 text-center text-[12px] text-[#b4471c]">{error}</p> : null}
       </main>
-
-      {target ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)] sm:p-7">
-            <p className="text-[12px] font-medium tracking-[0.12em] text-[#a3a3a3] uppercase">Before you install</p>
-            <h3 className="mt-2 text-[1.35rem] font-medium tracking-[-0.03em]">Download for {DESKTOP[target].label}</h3>
-            <p className="mt-3 text-[14px] leading-6 text-[#5c5c5c]">
-              Ketra is a crypto wallet. Installing it lets you create or recover an account, hold assets, and sign spends. You are responsible for your seed and your keys.
-            </p>
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-[#f4f4f4] px-4 py-3">
-              <input
-                type="checkbox"
-                checked={accepted}
-                onChange={(event) => setAccepted(event.target.checked)}
-                className="mt-1 h-4 w-4 accent-black"
-              />
-              <span className="text-[13px] leading-5 text-[#3a3a3a]">
-                I understand Ketra is a wallet and I accept the{" "}
-                <a href="/terms" className="font-medium underline decoration-[#ccc] underline-offset-2 hover:decoration-black">
-                  Terms of Service
-                </a>
-                .
-              </span>
-            </label>
-            {error ? <p className="mt-3 text-[13px] text-[#b4471c]">{error}</p> : null}
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setTarget(null);
-                  setAccepted(false);
-                  setError("");
-                }}
-                className="flex-1 rounded-full bg-[#ececec] py-3 text-[13px] font-medium hover:bg-[#e4e4e4]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!accepted || busy}
-                onClick={() => void confirmDownload()}
-                className="flex-1 rounded-full bg-black py-3 text-[13px] font-medium text-white enabled:hover:bg-[#222] disabled:opacity-35"
-              >
-                {busy ? "Starting…" : "Download"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
