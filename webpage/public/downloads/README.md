@@ -1,17 +1,15 @@
-Desktop downloads are single app files on GitHub Releases:
+# Desktop download assets
 
-- `Ketra-Windows.exe` — portable Windows app (double click to run)
-- `Ketra-linux.AppImage` — Linux AppImage
-- `Ketra-macOS.dmg` — macOS disk image
+Hosted on the GitHub release `v0.1.0` and redirected from `/api/download/{platform}`.
 
-Get started serves them through `/api/download/{windows|linux|mac}`.
+- `Ketra-Setup.exe` — Windows NSIS installer. Installs as **Ketra** with Start Menu + desktop shortcuts.
+- `Ketra-linux.AppImage` — Linux x64 AppImage
 
 Build Windows locally:
 
 ```bash
 cd "desktop app"
 npm install
-npm run dist:win
+set CSC_IDENTITY_AUTO_DISCOVERY=false
+npx electron-builder --win nsis --x64
 ```
-
-Linux AppImage and macOS DMG are built by `.github/workflows/desktop.yml`.

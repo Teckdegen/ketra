@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 const DESKTOP = {
-  windows: { label: "Windows", href: "/api/download/windows", logo: "/logos/platforms/windows.svg", note: "Windows 10+" },
+  windows: { label: "Windows", href: "/api/download/windows", logo: "/logos/platforms/windows.svg", note: "Installer · 10+" },
   linux: { label: "Linux", href: "/api/download/linux", logo: "/logos/platforms/linux.svg", note: "x64 AppImage" },
 } as const;
 

@@ -1,8 +1,8 @@
 {
   "name": "ketra-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
-  "description": "Ketra desktop wallet shell",
+  "description": "Quantum resistant wallet. Assets sit on a smart account. Only an MLDSA44 signature can move them. Live on Robinhood Chain.",
   "author": "Ketra",
   "main": "main.js",
   "scripts": {
@@ -16,9 +16,11 @@
   "build": {
     "appId": "network.ketra.desktop",
     "productName": "Ketra",
+    "copyright": "Copyright © Ketra",
     "directories": {
       "output": "dist"
     },
+    "afterSign": "./scripts/afterSign.js",
     "files": [
       "main.js",
       "icon.png",
@@ -34,14 +36,31 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
       "icon": "icon.ico",
-      "signAndEditExecutable": false
+      "executableName": "Ketra",
+      "legalTrademarks": "Ketra",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ketra",
+      "uninstallDisplayName": "Ketra",
+      "artifactName": "Ketra-Setup.exe",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
     },
     "linux": {
       "target": [
@@ -49,10 +68,8 @@
       ],
       "category": "Finance",
       "icon": "icon-512.png",
-      "executableName": "Ketra"
-    },
-    "portable": {
-      "artifactName": "Ketra-Windows.exe"
+      "executableName": "Ketra",
+      "synopsis": "Quantum resistant wallet on Robinhood Chain"
     },
     "dmg": {
       "artifactName": "Ketra-macOS.dmg"
@@ -64,6 +81,7 @@
   "devDependencies": {
     "electron": "^35.7.5",
     "electron-builder": "^26.0.12",
-    "png-to-ico": "^3.0.2"
+    "png-to-ico": "^3.0.2",
+    "rcedit": "^4.0.1"
   }
 }

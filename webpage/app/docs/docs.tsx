@@ -552,7 +552,7 @@ export function Docs() {
                     <tr>
                       <td>Windows desktop</td>
                       <td>Live</td>
-                      <td>Windows 10 or newer, x64 portable exe</td>
+                      <td>Windows 10 or newer, x64 installer (Ketra)</td>
                     </tr>
                     <tr>
                       <td>Linux desktop</td>

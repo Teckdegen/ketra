@@ -11,6 +11,30 @@ permissions:
   contents: write
 
 jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and build Windows installer
+        working-directory: desktop app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm install
+          npx electron-builder --win nsis --x64
+          dir dist
+      - name: Upload Windows installer to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          files: desktop app/dist/Ketra-Setup.exe
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   linux:
     runs-on: ubuntu-latest
     steps:
