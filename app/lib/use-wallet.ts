@@ -64,13 +64,24 @@ export function refreshWallet(fresh = false): Promise<void> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ account, tokens: importedTokens(account), fresh }),
   })
-    .then((response) => response.json() as Promise<WalletOverview & { error?: string }>)
+    .then(async (response) => {
+      const text = await response.text();
+      try {
+        return text ? (JSON.parse(text) as WalletOverview & { error?: string }) : { error: "The wallet could not be read." };
+      } catch {
+        return { error: "The wallet could not be read." };
+      }
+    })
     .then((body) => {
       if (activeAccount() !== account) return;
-      if (body.error) emit({ loading: false, error: body.error });
-      else emit({ loading: false, error: "", data: body });
+      if (body.error) {
+        const message = /cjs\/loader|MODULE_NOT_FOUND|missing a dependency/i.test(body.error)
+          ? "Balance is unavailable right now."
+          : body.error;
+        emit({ loading: false, error: message, data: null });
+      } else emit({ loading: false, error: "", data: body as WalletOverview });
     })
-    .catch(() => emit({ loading: false, error: "Robinhood Chain did not answer." }))
+    .catch(() => emit({ loading: false, error: "Robinhood Chain did not answer.", data: null }))
     .finally(() => {
       if (inflight === request) inflight = null;
     });

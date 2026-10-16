@@ -127,10 +127,14 @@ export default function Home() {
               <p className="mt-2 text-[14px] text-[#8a8a8a]">{formatValueHint(data.totalUsd, data.totalEth, unit)}</p>
             ) : null}
           </>
-        ) : (
+        ) : loading ? (
           <span className="sign-shimmer mt-3 block h-10 w-44 rounded-2xl" />
+        ) : (
+          <>
+            <p className="mt-3 text-[2.6rem] leading-none font-medium tracking-[-0.04em]">{formatValue(0, 0, unit)}</p>
+            {error ? <p className="mt-3 text-[13px] text-[#8a8a8a]">Could not refresh · showing 0</p> : null}
+          </>
         )}
-        {error && !data ? <p className="mt-3 text-[13px] text-[#b4471c]">{error}</p> : null}
       </div>
 
       <div className="mt-6 glass rounded-[28px] px-4 py-6 sm:px-6">

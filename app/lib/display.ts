@@ -56,10 +56,10 @@ export function useBalanceUnit() {
   );
 }
 
-/** Primary label for a valued balance, following the settings toggle. */
+/** Primary label for a valued balance, following the settings toggle. Empty wallets show zero. */
 export function formatValue(usd: number | null | undefined, eth: number | null | undefined, preference: BalanceUnit) {
-  if (preference === "eth") return eth == null ? "—" : ethLabel(eth);
-  return usd == null ? "—" : money(usd);
+  if (preference === "eth") return ethLabel(eth ?? 0);
+  return money(usd ?? 0);
 }
 
 /** Secondary label under the primary amount. */
