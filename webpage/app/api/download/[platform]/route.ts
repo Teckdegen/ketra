@@ -13,7 +13,7 @@ const FILES = {
 
 /** Single-file apps on the release. Windows portable exe, Linux AppImage, macOS DMG. */
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
-  mac: true,
+  mac: false,
   windows: true,
   linux: true,
 };

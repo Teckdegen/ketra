@@ -33,24 +33,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install and build DMG
-        working-directory: desktop app
-        run: |
-          npm install
-          npx electron-builder --mac dmg --arm64
-          ls -la dist
-      - name: Upload macOS DMG to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.1.0
-          files: desktop app/dist/*.dmg
-          fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # macOS paused: prior arm64-only DMG did not run on Intel Macs, and Gatekeeper needs signing.
+  # Re-enable with --mac dmg --x64 --arm64 (or universal) plus Apple notarization.

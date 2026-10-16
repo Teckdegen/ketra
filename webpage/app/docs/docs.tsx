@@ -267,7 +267,7 @@ export function Docs() {
                 </p>
               </div>
               <p>
-                You can use Ketra in the browser at wallet.ketra.network, through the Chrome extension, or through the desktop apps for macOS 12+, Windows 10+, and Linux x64. Brave, Edge, App Store, and Google Play are not shipping yet.
+                You can use Ketra in the browser at wallet.ketra.network, through the Chrome extension, or through the desktop apps for Windows 10+ and Linux x64. macOS, Brave, Edge, App Store, and Google Play are not shipping yet.
               </p>
             </section>
 
@@ -561,14 +561,14 @@ export function Docs() {
                       <td>Windows 10 or newer, x64 portable exe</td>
                     </tr>
                     <tr>
-                      <td>macOS desktop</td>
-                      <td>Live</td>
-                      <td>macOS 12 Monterey or newer, DMG</td>
-                    </tr>
-                    <tr>
                       <td>Linux desktop</td>
                       <td>Live</td>
                       <td>x64 AppImage, glibc based distros</td>
+                    </tr>
+                    <tr>
+                      <td>macOS desktop</td>
+                      <td>Coming soon</td>
+                      <td>Intel and Apple Silicon builds planned</td>
                     </tr>
                     <tr>
                       <td>Brave / Edge</td>
@@ -584,7 +584,7 @@ export function Docs() {
                 </table>
               </div>
               <p>
-                Desktop builds open the same Ketra wallet surface inside a native shell. Download them from Get started. Unsigned first launches on macOS may need a right click Open once until notarization is added.
+                Desktop builds open the same Ketra wallet surface inside a native shell. Download Windows and Linux from Get started. The macOS shell is paused until we ship a build that covers Intel and Apple Silicon cleanly.
               </p>
             </section>
 
