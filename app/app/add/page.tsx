@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
 import { addWallet, hasLock, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
-import { SeedPhraseView } from "../seed-phrase";
+import { SeedPhraseEntry, SeedPhraseView } from "../seed-phrase";
 
 async function addressFor(seedHex: string) {
   const keys = ml_dsa44.keygen(hexToBytes(seedHex));
@@ -118,11 +118,7 @@ export default function AddWallet() {
   }
 
   async function copySeed() {
-    try {
-      await navigator.clipboard.writeText(seed);
-    } catch {
-      setError("The browser blocked the copy.");
-    }
+    await navigator.clipboard.writeText(seed);
   }
 
   return (
@@ -163,25 +159,24 @@ export default function AddWallet() {
       ) : null}
 
       {mode === "import" ? (
-        <form onSubmit={recover} className="mt-6 glass rounded-[28px] p-5">
-          <p className="text-[13px] leading-5 text-[#8a8a8a]">Enter the seed phrase. It stays in this browser and is not sent.</p>
-          <label className="mt-4 block text-[13px] text-[#8a8a8a]" htmlFor="add-key">
-            Seed phrase
-          </label>
-          <textarea
-            id="add-key"
+        <form onSubmit={recover} className="mt-6 glass rounded-[32px] px-6 py-8">
+          <h2 className="text-center text-[13px] font-medium tracking-[0.16em]">ENTER SEED PHRASE</h2>
+          <p className="mx-auto mt-4 max-w-[340px] text-center text-[14px] leading-6 text-[#6a6a6a]">
+            Type each word in order, or paste the whole phrase.
+            <br />
+            It stays in this browser and is not sent.
+          </p>
+          <SeedPhraseEntry
             value={seed}
-            onChange={(event) => setSeed(event.target.value)}
-            rows={4}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            className="glass-field mt-2 w-full resize-none rounded-2xl px-4 py-3 text-[15px] leading-6 outline-none"
+            onChange={(phrase) => {
+              setSeed(phrase);
+              setError("");
+            }}
           />
           <button
             type="submit"
             disabled={Boolean(busy)}
-            className="mt-3 h-11 w-full rounded-full bg-black text-[14px] font-medium text-white disabled:opacity-50"
+            className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50"
           >
             {busy || "Continue"}
           </button>
@@ -192,7 +187,7 @@ export default function AddWallet() {
               setSeed("");
               setError("");
             }}
-            className="glass-field mt-3 h-11 w-full rounded-full text-[14px] font-medium"
+            className="glass-field mt-3 h-12 w-full rounded-full text-[15px] font-medium"
           >
             Back
           </button>

@@ -4,8 +4,8 @@ import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
-import { addWallet, hasLock, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
-import { SeedPhraseView } from "./seed-phrase";
+import { addWallet, clearWallets, hasLock, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
+import { SeedPhraseEntry, SeedPhraseView } from "./seed-phrase";
 
 async function addressFor(seedHex: string) {
   const keys = ml_dsa44.keygen(hexToBytes(seedHex));
@@ -27,6 +27,7 @@ export default function Welcome() {
   const [error, setError] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [forgetConfirm, setForgetConfirm] = useState(false);
 
   function enter() {
     router.replace("/");
@@ -57,6 +58,7 @@ export default function Welcome() {
     setPassword("");
     setConfirm("");
     setError("");
+    setForgetConfirm(false);
     setMode("password");
   }
 
@@ -113,25 +115,36 @@ export default function Welcome() {
     setPassword("");
     setConfirm("");
     setError("");
+    setForgetConfirm(false);
     setMode("password");
   }
 
   async function copySeed() {
-    try {
-      await navigator.clipboard.writeText(seed);
-    } catch {
-      setError("The browser blocked the copy.");
-    }
+    await navigator.clipboard.writeText(seed);
   }
+
+  function forgetDevice() {
+    clearWallets();
+    setSeed("");
+    setPassword("");
+    setConfirm("");
+    setError("");
+    setForgetConfirm(false);
+    setBusy("");
+    setMode("choose");
+    router.replace("/create");
+  }
+
+  const tall = mode === "create" || mode === "import";
 
   return (
     <main className="fixed inset-0 grid place-items-center overflow-hidden overscroll-none px-5">
       <section
         className={`glass w-full max-h-[min(100dvh-1.5rem,100%)] rounded-[32px] px-7 py-8 text-center sm:py-10 ${
-          mode === "create" ? "max-w-[520px] overflow-y-auto" : "max-w-[420px] overflow-hidden"
+          tall ? "max-w-[520px] overflow-y-auto" : "max-w-[420px] overflow-hidden"
         }`}
       >
-        {mode === "create" ? null : (
+        {mode === "create" || mode === "import" ? null : (
           <div className="flex items-center justify-center gap-3">
             <img src="/icon.png" alt="" className="h-14 w-14 rounded-[16px]" />
             <p className="text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
@@ -168,22 +181,19 @@ export default function Welcome() {
         {mode === "create" && seed ? <SeedPhraseView phrase={seed} onCopy={copySeed} onNext={continueFromPhrase} /> : null}
 
         {mode === "import" ? (
-          <form onSubmit={recover}>
-            <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
-              Enter the seed phrase. It stays in this browser and is not sent.
+          <form onSubmit={recover} className="text-left">
+            <h2 className="text-center text-[13px] font-medium tracking-[0.16em]">ENTER SEED PHRASE</h2>
+            <p className="mx-auto mt-4 max-w-[340px] text-center text-[14px] leading-6 text-[#6a6a6a]">
+              Type each word in order, or paste the whole phrase.
+              <br />
+              It stays in this browser and is not sent.
             </p>
-            <label className="mt-6 block text-left text-[13px] text-[#8a8a8a]" htmlFor="quantum-key">
-              Seed phrase
-            </label>
-            <textarea
-              id="quantum-key"
+            <SeedPhraseEntry
               value={seed}
-              onChange={(event) => setSeed(event.target.value)}
-              rows={4}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              className="glass-field mt-2 w-full resize-none rounded-2xl px-4 py-3 text-left text-[15px] leading-6 outline-none"
+              onChange={(phrase) => {
+                setSeed(phrase);
+                setError("");
+              }}
             />
             <button
               type="submit"
@@ -236,6 +246,27 @@ export default function Welcome() {
             <button type="submit" disabled={Boolean(busy)} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
               {busy || "Continue"}
             </button>
+            {hasLock() ? (
+              forgetConfirm ? (
+                <div className="mt-4 text-left">
+                  <p className="text-[13px] leading-5 text-[#8a8a8a]">
+                    This removes every wallet on this device. A seed phrase is the only way back.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={forgetDevice} className="rounded-full bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
+                      Forget this device
+                    </button>
+                    <button type="button" onClick={() => setForgetConfirm(false)} className="glass-field rounded-full px-4 py-2.5 text-[13px]">
+                      Keep them
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setForgetConfirm(true)} className="mt-4 text-[13px] text-[#8a8a8a] underline decoration-[#ddd] underline-offset-2">
+                  Forgot password?
+                </button>
+              )
+            ) : null}
           </form>
         ) : null}
 

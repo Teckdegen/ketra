@@ -1,12 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { hydrateSeeds, unlock } from "@/lib/wallets";
+import { clearWallets, hydrateSeeds, unlock } from "@/lib/wallets";
 
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forgetConfirm, setForgetConfirm] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -26,8 +29,13 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     onUnlock();
   }
 
+  function forgetDevice() {
+    clearWallets();
+    router.replace("/create");
+  }
+
   return (
-    <div className="glass-scrim fixed inset-0 z-50 grid place-items-center px-5">
+    <div className="glass-scrim fixed inset-0 z-50 grid place-items-center overflow-hidden px-5">
       <form onSubmit={submit} className="glass w-full max-w-[420px] rounded-[32px] px-7 py-10 text-center">
         <img src="/icon.png" alt="" className="mx-auto h-14 w-14 rounded-[16px]" />
         <p className="mt-4 text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
@@ -49,6 +57,23 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         <button type="submit" disabled={busy} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
           {busy ? "Checking" : "Unlock"}
         </button>
+        {forgetConfirm ? (
+          <div className="mt-4 text-left">
+            <p className="text-[13px] leading-5 text-[#8a8a8a]">This removes every wallet on this device. A seed phrase is the only way back.</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={forgetDevice} className="rounded-full bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
+                Forget this device
+              </button>
+              <button type="button" onClick={() => setForgetConfirm(false)} className="glass-field rounded-full px-4 py-2.5 text-[13px]">
+                Keep them
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setForgetConfirm(true)} className="mt-4 text-[13px] text-[#8a8a8a] underline decoration-[#ddd] underline-offset-2">
+            Forgot password?
+          </button>
+        )}
       </form>
     </div>
   );
