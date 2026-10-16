@@ -123,6 +123,16 @@ export default function Home() {
             {error ? <p className="mt-3 text-[13px] text-[#8a8a8a]">Could not refresh · showing 0</p> : null}
           </>
         )}
+        {data ? (
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <Link href="/receive" className="flex h-11 items-center justify-center rounded-full bg-black text-[14px] font-medium text-white">
+              Receive
+            </Link>
+            <Link href="/send" className="glass-field flex h-11 items-center justify-center rounded-full text-[14px] font-medium">
+              Send
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-6 glass rounded-[28px] px-4 py-6 sm:px-6">
