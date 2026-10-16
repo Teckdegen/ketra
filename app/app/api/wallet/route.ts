@@ -44,13 +44,14 @@ export async function POST(request: Request) {
     const tokenFor = (id: string) => (id === "ETH" ? eth : (infos.get(id.toLowerCase()) ?? null));
 
     const ethRaw = BigInt(raw.eth);
-    const imported = new Set(extra.map((item) => item.toLowerCase()));
-    const pending: { token: Token; amount: bigint }[] = [{ token: eth, amount: ethRaw }];
+    const pending: { token: Token; amount: bigint }[] = [];
+    if (ethRaw > 0n) pending.push({ token: eth, amount: ethRaw });
     for (const item of raw.balances) {
       const token = tokenFor(item.token);
       if (!token || item.balance == null) continue;
       const amount = BigInt(item.balance);
-      if (amount === 0n && !imported.has(item.token.toLowerCase())) continue;
+      // Never list empty balances — imported tokens stay available for send/swap, just not in Portfolio.
+      if (amount === 0n) continue;
       pending.push({ token, amount });
     }
 

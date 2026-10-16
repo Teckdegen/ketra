@@ -111,8 +111,11 @@ export default function Home() {
   const unit = useBalanceUnit();
   const hide = useBalanceHidden();
   const longPress = useLongPressToggle(toggleBalanceHidden);
-  const assets = data?.assets ?? [];
-  const funded = assets.some((asset) => asset.balance !== "0");
+  const assets = (data?.assets ?? []).filter((asset) => {
+    const raw = asset.balance.replace(/^-/, "");
+    return raw !== "0" && raw !== "" && !/^0\.0*$/.test(raw);
+  });
+  const funded = assets.length > 0;
   const total = data ? formatValue(data.totalUsd, data.totalEth, unit) : formatValue(0, 0, unit);
   const hint = data ? formatValueHint(data.totalUsd, data.totalEth, unit) : "";
 
