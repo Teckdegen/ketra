@@ -130,11 +130,8 @@ function Review() {
           body = { error: "This could not be prepared." };
         }
         if (cancelled) return;
-        const message = body.error && /cjs\/loader|MODULE_NOT_FOUND|missing a dependency/i.test(body.error)
-          ? "The wallet server is still updating. Try again in a minute."
-          : body.error;
         if (!response.ok || body.error || !("steps" in body)) {
-          setState({ phase: "error", message: message || "This could not be prepared.", wallet });
+          setState({ phase: "error", message: body.error || "This could not be prepared.", wallet });
         } else {
           setState({ phase: "ready", prepared: body, wallet });
         }

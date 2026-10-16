@@ -1,9 +1,21 @@
 import { AbiCoder, Contract, MaxUint256, Wallet, ZeroAddress, getAddress } from "ethers";
 import { deployed, gasKey, provider as connect, safeError } from "@/lib/server-chain";
-import { loadRobinhood } from "@/lib/protocol-robinhood";
+import {
+  allow,
+  mainnet,
+  morphoSupplySteps,
+  ponsCurveBuySteps,
+  ponsCurveSellSteps,
+  steakhouseDepositSteps,
+  v2SwapStep,
+  v3Router02Steps,
+  v4SwapSteps,
+  type Step,
+} from "@/lib/robinhood-steps";
 
 const coder = AbiCoder.defaultAbiCoder();
 const V2_ROUTER = getAddress("0x89e5db8b5aa49aa85ac63f691524311aeb649eba");
+const WETH = mainnet.weth;
 
 const ACCOUNT_ABI = [
   "function nonce() view returns (uint256)",
@@ -38,14 +50,11 @@ const REVERTS: Record<string, string> = {
 
 type Plan = Record<string, unknown>;
 
-function call(target: string, value: bigint, data: string): [number, string] {
+function call(target: string, value: bigint, data: string): Step {
   return [1, coder.encode(["address", "uint256", "bytes"], [getAddress(target), value, data])];
 }
 
-function build(plan: Plan, account: string): [number, string][] {
-  const robinhood = loadRobinhood();
-  const WETH = robinhood.mainnet.weth;
-
+function build(plan: Plan, account: string): Step[] {
   if (plan.kind === "send") {
     const to = getAddress(String(plan.to));
     const amount = BigInt(String(plan.amount));
@@ -53,23 +62,23 @@ function build(plan: Plan, account: string): [number, string][] {
     return [[3, coder.encode(["address", "address", "uint256"], [getAddress(String(plan.token)), to, amount])]];
   }
   if (plan.kind === "wrap") {
-    return [robinhood.allow(WETH), call(WETH, BigInt(String(plan.amount)), "0xd0e30db0")];
+    return [allow(WETH), call(WETH, BigInt(String(plan.amount)), "0xd0e30db0")];
   }
   if (plan.kind === "unwrap") {
-    return [robinhood.allow(WETH), call(WETH, 0n, `0x2e1a7d4d${coder.encode(["uint256"], [BigInt(String(plan.amount))]).slice(2)}`)];
+    return [allow(WETH), call(WETH, 0n, `0x2e1a7d4d${coder.encode(["uint256"], [BigInt(String(plan.amount))]).slice(2)}`)];
   }
   if (plan.kind === "morpho") {
-    return robinhood.morphoSupplySteps({
-      morpho: robinhood.mainnet.morpho,
-      market: robinhood.mainnet.morphoUsdgBspy,
+    return morphoSupplySteps({
+      morpho: mainnet.morpho,
+      market: mainnet.morphoUsdgBspy,
       assets: BigInt(String(plan.amount)),
       account,
     });
   }
   if (plan.kind === "steakhouse") {
-    return robinhood.steakhouseDepositSteps({
-      vault: robinhood.mainnet.steakUsdg,
-      asset: robinhood.mainnet.usdg,
+    return steakhouseDepositSteps({
+      vault: mainnet.steakUsdg,
+      asset: mainnet.usdg,
       assets: BigInt(String(plan.amount)),
       account,
     });
@@ -78,7 +87,7 @@ function build(plan: Plan, account: string): [number, string][] {
     const amount = BigInt(String(plan.amountIn));
     const amountOutMin = BigInt(String(plan.amountOutMin));
     if (plan.side === "buy") {
-      return robinhood.ponsCurveBuySteps({
+      return ponsCurveBuySteps({
         curve: String(plan.curve),
         pairToken: String(plan.tokenIn),
         amount,
@@ -87,7 +96,7 @@ function build(plan: Plan, account: string): [number, string][] {
       });
     }
     if (plan.side === "sell") {
-      return robinhood.ponsCurveSellSteps({
+      return ponsCurveSellSteps({
         curve: String(plan.curve),
         token: String(plan.tokenIn),
         amount,
@@ -102,17 +111,17 @@ function build(plan: Plan, account: string): [number, string][] {
     const amountOutMin = BigInt(String(plan.amountOutMin));
     const tokenIn = getAddress(String(plan.tokenIn));
     const tokenOut = getAddress(String(plan.tokenOut));
-    const steps: [number, string][] = [];
+    const steps: Step[] = [];
     if (plan.payEth) {
-      steps.push(robinhood.allow(WETH));
+      steps.push(allow(WETH));
       steps.push(call(WETH, amountIn, "0xd0e30db0"));
     }
     if (plan.version === "v4") {
       const [currency0, currency1] = [tokenIn, tokenOut].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
       steps.push(
-        ...robinhood.v4SwapSteps({
-          router: robinhood.mainnet.universalRouter,
-          permit2: robinhood.mainnet.permit2,
+        ...v4SwapSteps({
+          router: mainnet.universalRouter,
+          permit2: mainnet.permit2,
           pool: {
             currency0,
             currency1,
@@ -128,8 +137,8 @@ function build(plan: Plan, account: string): [number, string][] {
       );
     } else if (plan.version === "v3") {
       steps.push(
-        ...robinhood.v3Router02Steps({
-          router: robinhood.mainnet.swapRouter02,
+        ...v3Router02Steps({
+          router: mainnet.swapRouter02,
           tokenIn,
           tokenOut,
           fee: Number(plan.fee),
@@ -139,9 +148,9 @@ function build(plan: Plan, account: string): [number, string][] {
         }),
       );
     } else if (plan.version === "v2") {
-      steps.push(robinhood.allow(V2_ROUTER));
+      steps.push(allow(V2_ROUTER));
       steps.push(
-        robinhood.v2SwapStep({
+        v2SwapStep({
           router: V2_ROUTER,
           amountIn,
           amountOutMin,
@@ -153,7 +162,7 @@ function build(plan: Plan, account: string): [number, string][] {
       throw new Error("There is no route for this swap.");
     }
     if (plan.receiveEth) {
-      steps.push(robinhood.allow(WETH));
+      steps.push(allow(WETH));
       steps.push(call(WETH, 0n, `0x2e1a7d4d${coder.encode(["uint256"], [MaxUint256]).slice(2)}`));
     }
     return steps;
