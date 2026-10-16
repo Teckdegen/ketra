@@ -23,7 +23,13 @@ async function addressFor(seedHex: string) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ publicKey: bytesToHex(keys.publicKey) }),
   });
-  const body = (await response.json()) as { address?: string | null; error?: string };
+  const text = await response.text();
+  let body: { address?: string | null; error?: string } = {};
+  try {
+    body = text ? (JSON.parse(text) as typeof body) : {};
+  } catch {
+    throw new Error("The account server returned an unreadable answer. Try again after redeploy.");
+  }
   if (!body.address) throw new Error(body.error || "The account was not created.");
   return body.address;
 }
