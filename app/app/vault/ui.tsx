@@ -576,9 +576,11 @@ export function VaultView({ vault }: { vault: VaultSnapshot }) {
 
 export function MarketView({ market, vault }: { market: MarketSnapshot; vault: VaultSnapshot | null }) {
   const allocation = vault?.markets.find((item) => item.id.toLowerCase() === market.id.toLowerCase());
-  const wired = market.id.toLowerCase() === BSPY_MARKET_ID.toLowerCase();
+  const marketKey = market.id.toLowerCase();
+  const wired = marketKey === BSPY_MARKET_ID.toLowerCase();
   const steakhouseName = market.supplyingVaults.find((name) => /steakhouse/i.test(name)) ?? null;
-  const steakhouse = Boolean(steakhouseName && vault && steakhouseName.toLowerCase() === vault.name.toLowerCase());
+  // Any Steakhouse-supplied market deposits into our wired Steakhouse USDG vault.
+  const steakhouse = Boolean(steakhouseName && vault);
   const listed = !wired && !steakhouse;
   const position = usePosition(wired ? "morpho" : "steakhouse");
   return (
