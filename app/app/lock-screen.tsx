@@ -1,11 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { clearWallets, hydrateSeeds, unlock } from "@/lib/wallets";
+import { hydrateSeeds, resetDevice, unlock } from "@/lib/wallets";
 
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,8 +28,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }
 
   function forgetDevice() {
-    clearWallets();
-    router.replace("/create");
+    resetDevice("/create");
   }
 
   return (
@@ -59,10 +56,12 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         </button>
         {forgetConfirm ? (
           <div className="mt-4 text-left">
-            <p className="text-[13px] leading-5 text-[#8a8a8a]">This removes every wallet on this device. A seed phrase is the only way back.</p>
+            <p className="text-[13px] leading-5 text-[#8a8a8a]">
+              This wipes every wallet and the device password. You start fresh. A seed phrase is the only way back into an old wallet.
+            </p>
             <div className="mt-3 flex gap-2">
               <button type="button" onClick={forgetDevice} className="rounded-full bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
-                Forget this device
+                Wipe and start over
               </button>
               <button type="button" onClick={() => setForgetConfirm(false)} className="glass-field rounded-full px-4 py-2.5 text-[13px]">
                 Keep them
@@ -71,7 +70,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           </div>
         ) : (
           <button type="button" onClick={() => setForgetConfirm(true)} className="mt-4 text-[13px] text-[#8a8a8a] underline decoration-[#ddd] underline-offset-2">
-            Forgot password?
+            Forgot password? Wipe device
           </button>
         )}
       </form>

@@ -7,11 +7,10 @@ import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/see
 import {
   addWallet,
   clearOrphanLock,
-  clearWallets,
-  hasDeviceWallet,
   hasLock,
   protectWallets,
   rememberAddress,
+  resetDevice,
   unlock,
 } from "@/lib/wallets";
 import { SeedPhraseEntry, SeedPhraseView } from "./seed-phrase";
@@ -143,15 +142,7 @@ export default function Welcome() {
   }
 
   function forgetDevice() {
-    clearWallets();
-    setSeed("");
-    setPassword("");
-    setConfirm("");
-    setError("");
-    setForgetConfirm(false);
-    setBusy("");
-    setMode("choose");
-    router.replace("/create");
+    resetDevice("/create");
   }
 
   const tall = mode === "create" || mode === "import";
@@ -271,11 +262,11 @@ export default function Welcome() {
               forgetConfirm ? (
                 <div className="mt-4 text-left">
                   <p className="text-[13px] leading-5 text-[#8a8a8a]">
-                    This removes every wallet on this device. A seed phrase is the only way back.
+                    This wipes every wallet and the device password. You start fresh. A seed phrase is the only way back into an old wallet.
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button type="button" onClick={forgetDevice} className="rounded-full bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
-                      Forget this device
+                      Wipe and start over
                     </button>
                     <button type="button" onClick={() => setForgetConfirm(false)} className="glass-field rounded-full px-4 py-2.5 text-[13px]">
                       Keep them

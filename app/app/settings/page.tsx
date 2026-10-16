@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
 import { bytesToHex, hexToBytes, phraseFromSeed, seedFromPhrase } from "@/lib/seed";
-import { addWallet, changePassword, clearWallets, hasLock, lockApp, protectWallets, readWallets, rememberAddress, removeWallet, setActive, unlock, type SavedWallet } from "@/lib/wallets";
+import { addWallet, changePassword, clearWallets, hasLock, lockApp, protectWallets, readWallets, rememberAddress, removeWallet, resetDevice, setActive, unlock, type SavedWallet } from "@/lib/wallets";
 import { WalletAvatar } from "../wallet-avatar";
 import { formatValue, setBalanceUnit, useBalanceUnit, type BalanceUnit } from "@/lib/display";
 import { useWallet } from "@/lib/use-wallet";
@@ -315,8 +315,7 @@ export default function Settings() {
   }
 
   function forget() {
-    clearWallets();
-    window.location.replace("/create");
+    resetDevice("/create");
   }
 
   return (
@@ -610,10 +609,12 @@ export default function Settings() {
         ) : null}
         {confirmForget ? (
           <div className="border-t border-white/60 py-4">
-            <p className="text-[13px] leading-5 text-[#8a8a8a]">This removes every wallet on this device. A seed phrase is the only way back.</p>
+            <p className="text-[13px] leading-5 text-[#8a8a8a]">
+              This wipes every wallet and the device password. You start fresh. A seed phrase is the only way back into an old wallet.
+            </p>
             <div className="mt-3 flex gap-2">
               <button type="button" onClick={forget} className="rounded-lg bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
-                Forget this device
+                Wipe and start over
               </button>
               <button type="button" onClick={() => setConfirmForget(false)} className="glass-field rounded-lg px-4 py-2.5 text-[13px]">
                 Keep them

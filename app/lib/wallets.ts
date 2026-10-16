@@ -168,16 +168,38 @@ export function clearOrphanLock() {
   return true;
 }
 
+/** Wipe every Ketra key on this browser — wallets, password, tokens, rail — and start fresh. */
 export function clearWallets() {
   memory.clear();
   endSession();
   clearLock();
-  const keys: string[] = [];
+  const localKeys: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith("ketra-") && key !== "ketra-rail") keys.push(key);
+    if (key && key.startsWith("ketra-")) localKeys.push(key);
   }
-  for (const key of keys) localStorage.removeItem(key);
+  for (const key of localKeys) localStorage.removeItem(key);
+  try {
+    const sessionKeys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith("ketra-")) sessionKeys.push(key);
+    }
+    for (const key of sessionKeys) sessionStorage.removeItem(key);
+  } catch {
+    /* private mode */
+  }
+  // Explicit known keys in case anything was renamed or skipped while iterating.
+  for (const key of ["ketra-lock", "ketra-wallets", "ketra-active-wallet", "ketra-owner-seed", "ketra-rail", "ketra-balance-unit"]) {
+    localStorage.removeItem(key);
+  }
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("ketra-lock"));
+}
+
+/** Full factory reset: clear storage, then hard-navigate to create so UI state is brand new. */
+export function resetDevice(to = "/create") {
+  clearWallets();
+  if (typeof window !== "undefined") window.location.replace(to);
 }
 
 export async function protectWallets(password: string) {
