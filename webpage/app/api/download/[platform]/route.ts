@@ -6,16 +6,16 @@ const RELEASE = process.env.KETRA_DESKTOP_RELEASE || "v0.1.0";
 const BASE = `https://github.com/Teckdegen/ketra/releases/download/${RELEASE}`;
 
 const FILES = {
-  mac: "Ketra-macOS.zip",
-  windows: "Ketra-Windows.zip",
-  linux: "Ketra-linux.zip",
+  mac: "Ketra-macOS.dmg",
+  windows: "Ketra-Windows.exe",
+  linux: "Ketra-linux.AppImage",
 } as const;
 
-/** Platforms already published on the v0.1.0 release. macOS still needs a Mac pack. */
+/** Single-file apps on the release. Linux/macOS ship from CI; Windows is packed locally. */
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
   mac: false,
   windows: true,
-  linux: true,
+  linux: false,
 };
 
 type Platform = keyof typeof FILES;

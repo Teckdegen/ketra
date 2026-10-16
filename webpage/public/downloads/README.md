@@ -1,20 +1,17 @@
-Desktop builds ship on GitHub Releases (files are too large for git):
+Desktop downloads are single app files on GitHub Releases:
 
-https://github.com/Teckdegen/ketra/releases
+- `Ketra-Windows.exe` — portable Windows app (double click to run)
+- `Ketra-linux.AppImage` — Linux AppImage
+- `Ketra-macOS.dmg` — macOS disk image
 
-Expected assets:
+Get started serves them through `/api/download/{windows|linux|mac}`.
 
-- `Ketra-macOS.zip`
-- `Ketra-Windows.zip`
-- `Ketra-linux.zip`
-
-Build from `desktop app/`:
+Build Windows locally:
 
 ```bash
 cd "desktop app"
 npm install
-npm run dist
-npm run pack:web
+npm run dist:win
 ```
 
-Then upload the zips to the release with `gh release upload`.
+Linux AppImage and macOS DMG are built by `.github/workflows/desktop.yml`.

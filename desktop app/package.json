@@ -40,14 +40,16 @@
           ]
         }
       ],
-      "icon": "icon.png"
+      "icon": "icon.ico",
+      "signAndEditExecutable": false
     },
     "linux": {
       "target": [
         "AppImage"
       ],
       "category": "Finance",
-      "icon": "icon.png"
+      "icon": "icon-512.png",
+      "executableName": "Ketra"
     },
     "portable": {
       "artifactName": "Ketra-Windows.exe"
@@ -61,6 +63,7 @@
   },
   "devDependencies": {
     "electron": "^35.7.5",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^3.0.2"
   }
 }

@@ -40,7 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# desktop installers (too large for git; keep locally or host separately)
+# desktop installers (too large for git; ship via GitHub Releases)
 /public/downloads/*.zip
 /public/downloads/*.exe
 /public/downloads/*.dmg
