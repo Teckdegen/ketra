@@ -1,6 +1,16 @@
+/** Keeps amount typing clean: strips junk, one dot max, and turns `.5` into `0.5`. */
+export function normalizeAmountInput(value: string) {
+  let next = value.replace(/,/g, "").replace(/[^\d.]/g, "");
+  const dot = next.indexOf(".");
+  if (dot !== -1) next = `${next.slice(0, dot + 1)}${next.slice(dot + 1).replace(/\./g, "")}`;
+  if (next.startsWith(".")) next = `0${next}`;
+  return next;
+}
+
 export function parseAmount(value: string, decimals: number) {
-  if (!/^\d+(\.\d+)?$/.test(value)) return null;
-  const [whole, fraction = ""] = value.split(".");
+  const normalized = normalizeAmountInput(value.trim());
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  const [whole, fraction = ""] = normalized.split(".");
   const padded = fraction.slice(0, decimals).padEnd(decimals, "0");
   return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(padded || "0");
 }

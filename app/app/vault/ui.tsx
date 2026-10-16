@@ -8,7 +8,7 @@ import { compact, isoDate, money, percent, shortAddress, stamp } from "@/lib/for
 import { HISTORY_RANGES, type HistoryKind, type HistoryMetric, type HistoryRange, type HistorySeries } from "@/lib/history";
 import { BSPY_MARKET_ID, type MarketSnapshot, type VaultSnapshot } from "@/lib/morpho";
 import { playTransaction } from "@/lib/sound";
-import { displayAmount, parseAmount } from "@/lib/amount";
+import { displayAmount, normalizeAmountInput, parseAmount } from "@/lib/amount";
 import { tokenById } from "@/lib/tokens";
 import { balanceOf, useWallet } from "@/lib/use-wallet";
 
@@ -243,7 +243,7 @@ function DepositCard({
       <p className="mt-1 text-[12px] leading-5 text-[#8a8a8a]">{note}</p>
       <input
         value={amount}
-        onChange={(event) => setAmount(event.target.value)}
+        onChange={(event) => setAmount(normalizeAmountInput(event.target.value))}
         inputMode="decimal"
         placeholder="0.00"
         className="mt-3 w-full bg-transparent text-[2rem] leading-none font-medium tracking-[-0.04em] outline-none placeholder:text-[#dedede]"

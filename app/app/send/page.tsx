@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PortionButtons } from "../portion";
 import { TokenPicker, TokenPill } from "../token-modal";
-import { displayAmount, parseAmount } from "@/lib/amount";
+import { displayAmount, normalizeAmountInput, parseAmount } from "@/lib/amount";
 import { playTransaction } from "@/lib/sound";
 import { tokens, type Token } from "@/lib/tokens";
 import { balanceOf, useWallet } from "@/lib/use-wallet";
@@ -102,7 +102,7 @@ export default function Send() {
               <span className="text-[13px] text-[#8a8a8a]">Amount</span>
               <input
                 value={amount}
-                onChange={(event) => setAmount(event.target.value)}
+                onChange={(event) => setAmount(normalizeAmountInput(event.target.value))}
                 inputMode="decimal"
                 placeholder="0"
                 className="mt-2 w-full bg-transparent text-[2.6rem] leading-none font-medium tracking-[-0.04em] outline-none placeholder:text-[#dedede]"

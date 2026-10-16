@@ -1,4 +1,4 @@
-import { formatAmount, parseAmount } from "@/lib/amount";
+import { formatAmount, normalizeAmountInput, parseAmount } from "@/lib/amount";
 import { resolveToken } from "@/lib/chain";
 import { allow } from "@/lib/limit";
 import { afterFee, defiFee, findRoute } from "@/lib/quote";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as Body | null;
   if (!body?.account || !ADDRESS.test(body.account)) return bad("This wallet has no account yet.");
   if (!allow("prepare", request, 60, 60 * 1000)) return bad("Too many requests. Wait a moment.", 429);
-  const amountText = (body.amount ?? "").trim();
+  const amountText = normalizeAmountInput((body.amount ?? "").trim());
 
   let plan: Record<string, unknown>;
   let summary: SpendSummary;

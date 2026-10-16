@@ -112,22 +112,23 @@ function summarize(owner: string, steps: { action: number; payload: string }[], 
   for (const step of steps) {
     if (step.action === 2) {
       const [to, amount] = coder.decode(["address", "uint256"], step.payload);
-      add("ETH", -amount);
-      counterparty = getAddress(to);
+      add("ETH", -BigInt(amount));
+      counterparty = getAddress(String(to));
       kinds.add("send");
     } else if (step.action === 3) {
       const [, to] = coder.decode(["address", "address", "uint256"], step.payload);
-      counterparty = getAddress(to);
+      counterparty = getAddress(String(to));
       kinds.add("send");
     } else if (step.action === 1) {
       const [target, value, data] = coder.decode(["address", "uint256", "bytes"], step.payload);
       const selector = String(data).slice(0, 10).toLowerCase();
-      if (same(target, WETH)) {
+      if (same(String(target), WETH)) {
         if (selector === "0xd0e30db0") kinds.add("wrap");
         else if (selector === "0x2e1a7d4d") kinds.add("unwrap");
         continue;
       }
-      if (value > 0n) add("ETH", -value);
+      const ethValue = BigInt(value);
+      if (ethValue > 0n) add("ETH", -ethValue);
       kinds.add(SELECTORS[selector] ?? "swap");
     } else if (step.action === 5 || step.action === 6) {
       kinds.add("swap");
