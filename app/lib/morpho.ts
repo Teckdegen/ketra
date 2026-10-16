@@ -164,7 +164,6 @@ query Steakhouse($address: String!, $chainId: Int!) {
             items {
               state { supplyAssetsUsd }
               market {
-                uniqueKey
                 marketId
                 collateralAsset { symbol name logoURI }
                 loanAsset { symbol logoURI }
@@ -227,7 +226,7 @@ export async function getSteakhouse(): Promise<VaultSnapshot> {
       const collateral = (market.collateralAsset ?? {}) as Record<string, unknown>;
       const loan = (market.loanAsset ?? {}) as Record<string, unknown>;
       return {
-        id: text(market.uniqueKey).toLowerCase() || text(market.marketId).toLowerCase(),
+        id: text(market.marketId).toLowerCase(),
         collateralSymbol: text(collateral.symbol) || "Idle",
         collateralName: text(collateral.name),
         collateralLogo: text(collateral.logoURI) || null,
@@ -306,7 +305,6 @@ const marketQuery = `
 query Market($id: String!, $chainId: Int!) {
   markets(first: 1, where: { chainId_in: [$chainId], uniqueKey_in: [$id] }) {
     items {
-      uniqueKey
       marketId
       lltv
       collateralAsset { symbol name logoURI }
@@ -339,10 +337,8 @@ export async function getMarket(id: string): Promise<MarketSnapshot | null> {
   const loan = (market.loanAsset ?? {}) as Record<string, unknown>;
   const state = (market.state ?? {}) as Record<string, unknown>;
   const decimals = num(loan.decimals) || 6;
-  // Prefer uniqueKey — Morpho marketId can differ, and spend wiring keys off the unique key.
-  const uniqueKey = text(market.uniqueKey).toLowerCase() || requested;
   return {
-    id: uniqueKey,
+    id: text(market.marketId).toLowerCase() || requested,
     collateralSymbol: text(collateral.symbol),
     collateralName: text(collateral.name),
     collateralLogo: text(collateral.logoURI) || null,
@@ -367,7 +363,6 @@ const listQuery = `
 query Markets($chainId: Int!, $skip: Int!) {
   markets(first: 150, skip: $skip, where: { chainId_in: [$chainId] }) {
     items {
-      uniqueKey
       marketId
       collateralAsset { symbol logoURI }
       loanAsset { symbol logoURI }
@@ -389,9 +384,8 @@ export async function listMarkets(): Promise<ListedMarket[]> {
       const state = (market.state ?? {}) as Record<string, unknown>;
       const vaults = ((market.supplyingVaultV2s as { name?: unknown }[] | undefined) ?? []).map((vault) => text(vault.name)).filter(Boolean);
       const steakhouse = vaults.find((name) => /steakhouse/i.test(name)) ?? null;
-      const uniqueKey = text(market.uniqueKey).toLowerCase() || text(market.marketId).toLowerCase();
       rows.push({
-        id: uniqueKey,
+        id: text(market.marketId).toLowerCase(),
         collateralSymbol: text(collateral.symbol) || "Unknown",
         collateralLogo: text(collateral.logoURI) || null,
         loanSymbol: text(loan.symbol) || "Unknown",
