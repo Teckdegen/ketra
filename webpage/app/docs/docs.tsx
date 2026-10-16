@@ -51,7 +51,6 @@ const ketraContracts = [
   { name: "Factory", address: "0x72FEE9b929eCdCd7517888ce3305614B4722808c", note: "CREATE2 deploy of key blobs and accounts" },
   { name: "MLDSA44 verifier", address: "0x91c02D5Ac2F0616cE87D63b5418f8567AE07362a", note: "On chain signature check" },
   { name: "SHAKE helper", address: "0x31cC22Cc0e9Bf60293a04cA69743001bd2A53826", note: "Pinned hash helper for the verifier" },
-  { name: "Fee recipient", address: "0xc32E22EAE70aDe70bC5E95Da9f39766A1d24A971", note: "Immutable per account at creation" },
 ];
 
 const chainContracts = [
@@ -401,7 +400,7 @@ export function Docs() {
                 </table>
               </div>
               <p>
-                Fees go to the fee recipient fixed when the account is created. The account cannot change that address later. On Robinhood Chain the configured recipient is listed under Contracts below.
+                Fees go to a recipient fixed when the account is created. The account cannot change that address later.
               </p>
             </section>
 
@@ -524,7 +523,7 @@ export function Docs() {
                 <li>The client generates an MLDSA44 key pair.</li>
                 <li>It expands the public key into a 20,545 byte prepared blob the verifier can read with EXTCODECOPY.</li>
                 <li>deployKey publishes that blob. Degenerate t1 keys are rejected.</li>
-                <li>createAccount deploys KetraAccount pointed at the blob and the fee recipient.</li>
+                <li>createAccount deploys KetraAccount pointed at the blob.</li>
                 <li>Spending starts only after both contracts exist. Funding the predicted address can happen earlier.</li>
               </ol>
               <p>
