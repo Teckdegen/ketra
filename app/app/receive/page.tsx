@@ -117,12 +117,9 @@ export default function Receive() {
           <span className="sign-shimmer mx-auto block aspect-square max-w-[320px] rounded-[28px]" />
         ) : address ? (
           <>
-            <div className="glass relative mx-auto flex aspect-square max-w-[320px] items-center justify-center rounded-[28px] p-8">
+            <div className="glass mx-auto flex aspect-square max-w-[320px] items-center justify-center rounded-[28px] p-8">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qr} alt="" className="h-full w-full rounded-2xl bg-white object-contain p-2" />
-              <span className="absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/5">
-                <TokenLogo token={token} className="h-8 w-8" />
-              </span>
             </div>
 
             <div className="relative mt-6">

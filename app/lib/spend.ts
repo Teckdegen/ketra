@@ -1,4 +1,4 @@
-export type SpendKind = "send" | "swap" | "morpho" | "steakhouse";
+export type SpendKind = "send" | "swap" | "morpho" | "steakhouse" | "morpho-withdraw" | "steakhouse-withdraw";
 
 export type SpendAsset = { symbol: string; logo: string; amount: string };
 

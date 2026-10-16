@@ -7,10 +7,48 @@ import { PortionButtons } from "../portion";
 import { compact, isoDate, money, percent, shortAddress, stamp } from "@/lib/format";
 import { HISTORY_RANGES, type HistoryKind, type HistoryMetric, type HistoryRange, type HistorySeries } from "@/lib/history";
 import { BSPY_MARKET_ID, type MarketSnapshot, type VaultSnapshot } from "@/lib/morpho";
+import type { UserPosition } from "@/lib/positions";
 import { playTransaction } from "@/lib/sound";
 import { displayAmount, normalizeAmountInput, parseAmount } from "@/lib/amount";
 import { tokenById } from "@/lib/tokens";
 import { balanceOf, useWallet } from "@/lib/use-wallet";
+
+function usePosition(kind: "morpho" | "steakhouse") {
+  const { account } = useWallet();
+  const [assets, setAssets] = useState<string | null>(null);
+  useEffect(() => {
+    if (!account) {
+      setAssets(null);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/positions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account }),
+      })
+        .then(async (response) => {
+          const body = (await response.json()) as { positions?: UserPosition[] };
+          const hit = (body.positions ?? []).find((item) => item.kind === kind);
+          if (!cancelled) setAssets(hit?.assets ?? null);
+        })
+        .catch(() => {
+          if (!cancelled) setAssets(null);
+        });
+    };
+    load();
+    const timer = setInterval(load, 10_000);
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [account, kind]);
+  return assets;
+}
 
 const EXPLORER = "https://robinhoodchain.blockscout.com";
 
@@ -205,13 +243,14 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function DepositCard({
+function ManageCard({
   asset,
   apy,
   disabled,
   kind,
   note,
   disabledLabel = "Deposits are disabled",
+  positionAssets,
 }: {
   asset: string;
   apy: number;
@@ -219,28 +258,59 @@ function DepositCard({
   kind: "morpho" | "steakhouse";
   note: string;
   disabledLabel?: string;
+  positionAssets?: string | null;
 }) {
   const router = useRouter();
   const { data } = useWallet();
+  const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
   const parsed = Number(amount);
   const sized = Number.isFinite(parsed) ? parsed : 0;
   const usdg = tokenById("USDG")!;
-  const balance = balanceOf(data, usdg);
+  const walletBalance = balanceOf(data, usdg);
+  const position = positionAssets && positionAssets !== "0" ? positionAssets : null;
+  const canWithdraw = Boolean(position);
+  const mode = tab === "withdraw" && canWithdraw ? "withdraw" : "deposit";
+  const available = mode === "withdraw" ? position : walletBalance;
   const raw = parseAmount(amount.trim(), usdg.decimals);
-  const short = raw != null && balance != null && raw > (parseAmount(balance, usdg.decimals) ?? 0n);
+  const short = raw != null && available != null && raw > (parseAmount(available, usdg.decimals) ?? 0n);
+  const spendKind = mode === "withdraw" ? (`${kind}-withdraw` as const) : kind;
 
   function review(event: React.FormEvent) {
     event.preventDefault();
-    if (disabled || !amount.trim() || short) return;
+    if ((mode === "deposit" && disabled) || !amount.trim() || short) return;
     playTransaction();
-    router.push(`/sign?${new URLSearchParams({ kind, amount: amount.trim() }).toString()}`);
+    router.push(`/sign?${new URLSearchParams({ kind: spendKind, amount: amount.trim() }).toString()}`);
   }
 
   return (
     <form onSubmit={review} className="glass rounded-[28px] p-4 lg:sticky lg:top-6">
-      <p className="text-[13px] font-medium">Deposit {asset}</p>
-      <p className="mt-1 text-[12px] leading-5 text-[#8a8a8a]">{note}</p>
+      {canWithdraw ? (
+        <div className="mb-3 grid grid-cols-2 gap-1 rounded-full bg-black/5 p-1">
+          {(["deposit", "withdraw"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => {
+                setTab(item);
+                setAmount("");
+              }}
+              className={`rounded-full py-2 text-[13px] font-medium capitalize ${mode === item ? "bg-black text-white" : "text-[#6a6a6a]"}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <p className="text-[13px] font-medium">
+        {mode === "withdraw" ? "Withdraw" : "Deposit"} {asset}
+      </p>
+      {mode === "deposit" ? <p className="mt-1 text-[12px] leading-5 text-[#8a8a8a]">{note}</p> : null}
+      {position ? (
+        <p className="mt-2 text-[13px] text-[#8a8a8a]">
+          Position {displayAmount(position)} {asset}
+        </p>
+      ) : null}
       <input
         value={amount}
         onChange={(event) => setAmount(normalizeAmountInput(event.target.value))}
@@ -250,22 +320,34 @@ function DepositCard({
       />
       <div className="mt-2 flex items-center justify-between text-[12px] text-[#8a8a8a]">
         <span className={short ? "text-[#b4471c]" : ""}>
-          Balance {balance == null ? "…" : displayAmount(balance)} {asset}
+          {mode === "withdraw" ? "Position" : "Balance"} {available == null ? "…" : displayAmount(available)} {asset}
         </span>
-        <PortionButtons onAmount={setAmount} balance={balance} decimals={usdg.decimals} />
+        <PortionButtons onAmount={setAmount} balance={available} decimals={usdg.decimals} />
       </div>
       <div className="mt-4">
         <Row label="Network" value="Robinhood Chain" />
         <Row label="APY" value={percent(apy)} />
-        <Row label="Projected monthly" value={money((sized * apy) / 12)} />
-        <Row label="Projected yearly" value={money(sized * apy)} />
+        {mode === "deposit" ? (
+          <>
+            <Row label="Projected monthly" value={money((sized * apy) / 12)} />
+            <Row label="Projected yearly" value={money(sized * apy)} />
+          </>
+        ) : null}
       </div>
       <button
         type="submit"
-        disabled={disabled || !amount.trim() || short}
+        disabled={(mode === "deposit" && disabled) || !amount.trim() || short}
         className="mt-4 w-full glass-item rounded-xl py-3 text-[14px] text-[#9a9a9a] enabled:bg-black enabled:text-white"
       >
-        {disabled ? disabledLabel : !amount.trim() ? "Enter an amount" : short ? `Not enough ${asset}` : "Review"}
+        {mode === "deposit" && disabled
+          ? disabledLabel
+          : !amount.trim()
+            ? "Enter an amount"
+            : short
+              ? mode === "withdraw"
+                ? "More than position"
+                : `Not enough ${asset}`
+              : "Review"}
       </button>
     </form>
   );
@@ -275,6 +357,7 @@ const tabs = ["Overview", "Allocation", "Performance", "Risk", "Activity"] as co
 
 export function VaultView({ vault }: { vault: VaultSnapshot }) {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
+  const position = usePosition("steakhouse");
   const logos = vault.markets.map((market) => market.collateralLogo).filter((logo): logo is string => Boolean(logo));
   const title = vault.name.replace(new RegExp(`\\s${vault.assetSymbol}$`), "");
 
@@ -478,12 +561,13 @@ export function VaultView({ vault }: { vault: VaultSnapshot }) {
           </div>
         </div>
 
-        <DepositCard
+        <ManageCard
           asset={vault.assetSymbol}
           apy={vault.netApy}
           disabled={false}
           kind="steakhouse"
           note="Shares come back to the account."
+          positionAssets={position}
         />
       </div>
     </div>
@@ -496,6 +580,7 @@ export function MarketView({ market, vault }: { market: MarketSnapshot; vault: V
   const steakhouseName = market.supplyingVaults.find((name) => /steakhouse/i.test(name)) ?? null;
   const steakhouse = Boolean(steakhouseName && vault && steakhouseName.toLowerCase() === vault.name.toLowerCase());
   const listed = !wired && !steakhouse;
+  const position = usePosition(wired ? "morpho" : "steakhouse");
   return (
     <div>
       <Link href="/supply" className="text-[13px] text-[#8a8a8a]">
@@ -549,7 +634,7 @@ export function MarketView({ market, vault }: { market: MarketSnapshot; vault: V
             </div>
           </div>
         </div>
-        <DepositCard
+        <ManageCard
           asset={market.loanSymbol}
           apy={steakhouse ? vault?.netApy ?? market.apy : market.apy}
           disabled={!wired && !steakhouse}
@@ -562,6 +647,7 @@ export function MarketView({ market, vault }: { market: MarketSnapshot; vault: V
                 ? `This deposit goes to ${vault?.name}. The curator allocates the market.`
                 : "This market is listed from Morpho. The account is not wired to supply it."
           }
+          positionAssets={wired || steakhouse ? position : null}
         />
       </div>
     </div>

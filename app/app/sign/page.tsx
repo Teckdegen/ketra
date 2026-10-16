@@ -194,12 +194,13 @@ function Review() {
   const left = Math.max(0, prepared.deadline - now);
   const expired = state.phase === "ready" && left === 0;
   const busy = state.phase === "signing" || state.phase === "sending";
+  const withdrawing = summary.kind === "morpho-withdraw" || summary.kind === "steakhouse-withdraw";
   const headline =
-    summary.kind === "swap" && summary.receive
+    (summary.kind === "swap" || withdrawing) && summary.receive
       ? summary.receive.amount
       : summary.pay.amount;
   const headlineUnit =
-    summary.kind === "swap" && summary.receive ? summary.receive.symbol : summary.pay.symbol;
+    (summary.kind === "swap" || withdrawing) && summary.receive ? summary.receive.symbol : summary.pay.symbol;
 
   return (
     <div className="mx-auto max-w-md">
@@ -214,7 +215,7 @@ function Review() {
             <path d="M15 6 L9 12 L15 18" />
           </svg>
         </button>
-        <h1 className="flex-1 text-center text-[16px] font-medium tracking-[-0.02em] pr-10">Review {summary.title}</h1>
+        <h1 className="flex-1 pr-10 text-center text-[16px] font-medium tracking-[-0.02em]">Review {summary.title}</h1>
       </div>
 
       <p className="mt-14 text-center text-[3rem] font-medium leading-none tracking-[-0.05em]">
@@ -226,7 +227,7 @@ function Review() {
           <Row label="Recipient">
             <span className="font-mono">{short(summary.to.address)}</span>
           </Row>
-        ) : summary.receive ? (
+        ) : summary.receive && !withdrawing ? (
           <Row label="Receive">
             <span>
               {summary.receive.amount} {summary.receive.symbol}
@@ -234,7 +235,7 @@ function Review() {
           </Row>
         ) : null}
 
-        <Row label={summary.kind === "send" ? "Payment" : "Pay"}>
+        <Row label={summary.kind === "send" ? "Payment" : withdrawing ? "Withdraw" : "Pay"}>
           <span>
             {summary.pay.amount} {summary.pay.symbol}
             <span className="text-[#8a8a8a]"> · {summary.fee.rate} fee</span>
@@ -245,6 +246,12 @@ function Review() {
           <Row label="Sending">
             <span>
               {summary.pay.amount} {summary.pay.symbol}
+            </span>
+          </Row>
+        ) : withdrawing && summary.receive ? (
+          <Row label="You get">
+            <span>
+              {summary.receive.amount} {summary.receive.symbol}
             </span>
           </Row>
         ) : summary.receive ? (

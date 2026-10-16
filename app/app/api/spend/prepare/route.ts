@@ -1,6 +1,7 @@
 import { formatAmount, normalizeAmountInput, parseAmount } from "@/lib/amount";
 import { resolveToken } from "@/lib/chain";
 import { allow } from "@/lib/limit";
+import { morphoSupplyPosition } from "@/lib/positions";
 import { afterFee, defiFee, findRoute } from "@/lib/quote";
 import { safeError } from "@/lib/server-chain";
 import { prepareSpend } from "@/lib/spend-relay";
@@ -125,6 +126,33 @@ export async function POST(request: Request) {
       to: { label: "Into", address: undefined },
       fee: { amount: formatAmount(defiFee(amount), usdg.decimals), symbol: usdg.symbol, rate: "0.5%" },
       route: body.kind === "morpho" ? `Morpho USDG / bSPY · ${formatAmount(afterFee(amount), usdg.decimals)} USDG supplied` : `Steakhouse USDG vault · ${formatAmount(afterFee(amount), usdg.decimals)} USDG deposited`,
+    };
+  } else if (body.kind === "morpho-withdraw" || body.kind === "steakhouse-withdraw") {
+    const usdg = tokenById("USDG");
+    if (!usdg || usdg.address !== USDG_ADDRESS) return bad("USDG is not configured.");
+    const amount = parseAmount(amountText, usdg.decimals);
+    if (!amount) return bad("Enter an amount.");
+    plan = { kind: body.kind, amount: amount.toString() };
+    if (body.kind === "morpho-withdraw") {
+      try {
+        const position = await morphoSupplyPosition(body.account);
+        if (position.shares === 0n || position.assets === 0n) return bad("No Morpho position to withdraw.");
+        if (amount > position.assets) return bad("More than the Morpho position.");
+        // Full (or dust-close) exits burn shares so Morpho rounding cannot leave a stuck balance.
+        if (amount + 1n >= position.assets) plan = { ...plan, amount: "0", shares: position.shares.toString() };
+      } catch {
+        return bad("Morpho position could not be read.", 502);
+      }
+    }
+    const net = afterFee(amount);
+    summary = {
+      kind: body.kind,
+      title: "Withdraw",
+      pay: { symbol: usdg.symbol, logo: usdg.logo, amount: formatAmount(amount, usdg.decimals) },
+      receive: { symbol: usdg.symbol, logo: usdg.logo, amount: formatAmount(net, usdg.decimals), minimum: formatAmount(net, usdg.decimals) },
+      to: { label: "From", address: undefined },
+      fee: { amount: formatAmount(defiFee(amount), usdg.decimals), symbol: usdg.symbol, rate: "0.5%" },
+      route: body.kind === "morpho-withdraw" ? "Morpho USDG / bSPY" : "Steakhouse USDG vault",
     };
   } else {
     return bad("This action is not supported.");

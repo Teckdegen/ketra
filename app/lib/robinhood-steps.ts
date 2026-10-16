@@ -91,7 +91,9 @@ const SWAP_ROUTER_02_EXACT_INPUT = "0x04e45aaf";
 const UNIVERSAL_ROUTER_EXECUTE = "0x3593564c";
 const PERMIT2_APPROVE = "0x87517c45";
 const MORPHO_SUPPLY = "0xa99aad89";
+const MORPHO_WITHDRAW = "0x5c2bea49";
 const STEAKHOUSE_DEPOSIT = "0x6e553f65";
+const STEAKHOUSE_WITHDRAW = "0xb460af94";
 const PONS_CURVE_BUY = "0x59a87bc1";
 const PONS_CURVE_SELL = "0xd04c6983";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -233,6 +235,37 @@ export function morphoSupplySteps({
   });
 }
 
+export function morphoWithdrawSteps({
+  morpho,
+  market,
+  assets,
+  shares = 0n,
+  account,
+}: {
+  morpho: string;
+  market: typeof mainnet.morphoUsdgBspy;
+  assets: bigint;
+  shares?: bigint;
+  account: string;
+}): Step[] {
+  // Morpho: assets>0 sizes the exit; otherwise shares are burned. Full exits must use shares.
+  const useShares = shares > 0n;
+  const args = coder.encode(
+    ["tuple(address,address,address,address,uint256)", "uint256", "uint256", "address", "address"],
+    [
+      [market.loanToken, market.collateralToken, market.oracle, market.irm, market.lltv],
+      useShares ? 0n : assets,
+      useShares ? shares : 0n,
+      getAddress(account),
+      getAddress(account),
+    ],
+  );
+  return allowAndCall({
+    target: morpho,
+    data: MORPHO_WITHDRAW + args.slice(2),
+  });
+}
+
 export function steakhouseDepositSteps({
   vault,
   asset,
@@ -250,6 +283,22 @@ export function steakhouseDepositSteps({
     token: asset,
     amount: assets,
     data: STEAKHOUSE_DEPOSIT + args.slice(2),
+  });
+}
+
+export function steakhouseWithdrawSteps({
+  vault,
+  assets,
+  account,
+}: {
+  vault: string;
+  assets: bigint;
+  account: string;
+}): Step[] {
+  const args = coder.encode(["uint256", "address", "address"], [assets, getAddress(account), getAddress(account)]);
+  return allowAndCall({
+    target: vault,
+    data: STEAKHOUSE_WITHDRAW + args.slice(2),
   });
 }
 

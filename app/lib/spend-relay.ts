@@ -4,9 +4,11 @@ import {
   allow,
   mainnet,
   morphoSupplySteps,
+  morphoWithdrawSteps,
   ponsCurveBuySteps,
   ponsCurveSellSteps,
   steakhouseDepositSteps,
+  steakhouseWithdrawSteps,
   v2SwapStep,
   v3Router02Steps,
   v4SwapSteps,
@@ -79,6 +81,24 @@ function build(plan: Plan, account: string): Step[] {
     return steakhouseDepositSteps({
       vault: mainnet.steakUsdg,
       asset: mainnet.usdg,
+      assets: BigInt(String(plan.amount)),
+      account,
+    });
+  }
+  if (plan.kind === "morpho-withdraw") {
+    const assets = BigInt(String(plan.amount));
+    const shares = plan.shares != null ? BigInt(String(plan.shares)) : 0n;
+    return morphoWithdrawSteps({
+      morpho: mainnet.morpho,
+      market: mainnet.morphoUsdgBspy,
+      assets,
+      shares,
+      account,
+    });
+  }
+  if (plan.kind === "steakhouse-withdraw") {
+    return steakhouseWithdrawSteps({
+      vault: mainnet.steakUsdg,
       assets: BigInt(String(plan.amount)),
       account,
     });
