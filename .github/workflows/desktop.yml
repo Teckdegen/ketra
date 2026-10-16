@@ -24,7 +24,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           npm install
-          npx electron-builder --win nsis --x64
+          npx electron-builder --win nsis --x64 --publish never
           dir dist
       - name: Upload Windows installer to release
         uses: softprops/action-gh-release@v2
@@ -51,7 +51,7 @@ jobs:
         run: |
           npm install
           chmod +x scripts/linux-after-install.sh scripts/linux-after-remove.sh
-          npx electron-builder --linux deb --x64
+          npx electron-builder --linux deb --x64 --publish never
           ls -la dist
       - name: Upload Linux installer to release
         uses: softprops/action-gh-release@v2

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Quantum resistant wallet. Assets sit on a smart account. Only an MLDSA44 signature can move them. Live on Robinhood Chain.",
   "author": "Ketra",
+  "homepage": "https://ketra.network",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
