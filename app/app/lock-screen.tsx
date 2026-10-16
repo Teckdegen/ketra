@@ -1,0 +1,55 @@
+"use client";
+
+import { useState } from "react";
+import { hydrateSeeds, unlock } from "@/lib/wallets";
+
+export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (password.length !== 6) {
+      setError("Use 6 characters.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    const ok = await unlock(password);
+    if (!ok) {
+      setBusy(false);
+      setError("Wrong password.");
+      return;
+    }
+    await hydrateSeeds();
+    onUnlock();
+  }
+
+  return (
+    <div className="glass-scrim fixed inset-0 z-50 grid place-items-center px-5">
+      <form onSubmit={submit} className="glass w-full max-w-[420px] rounded-[32px] px-7 py-10 text-center">
+        <img src="/icon.png" alt="" className="mx-auto h-14 w-14 rounded-[16px]" />
+        <p className="mt-4 text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
+        <p className="mx-auto mt-6 max-w-[280px] text-[15px] leading-6 text-[#6a6a6a]">Enter the 6-character password for this device.</p>
+        <input
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setError("");
+          }}
+          type="password"
+          maxLength={6}
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          className="glass-field mt-6 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
+        />
+        {error ? <p className="mt-3 text-[13px] text-[#8a8a8a]">{error}</p> : null}
+        <button type="submit" disabled={busy} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
+          {busy ? "Checking" : "Unlock"}
+        </button>
+      </form>
+    </div>
+  );
+}

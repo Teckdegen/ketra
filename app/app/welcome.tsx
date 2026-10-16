@@ -3,42 +3,30 @@
 import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { addWallet, rememberAddress } from "@/lib/wallets";
-
-function hex(bytes: Uint8Array) {
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function bytesFromHex(value: string) {
-  const out = new Uint8Array(value.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(value.slice(i * 2, i * 2 + 2), 16);
-  return out;
-}
-
-function parseSeed(value: string) {
-  const next = value.trim().replace(/^0x/i, "").replace(/\s+/g, "");
-  if (!/^[0-9a-fA-F]{64}$/.test(next)) return null;
-  return next.toLowerCase();
-}
+import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
+import { addWallet, hasLock, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
+import { SeedPhraseView } from "./seed-phrase";
 
 async function addressFor(seedHex: string) {
-  const keys = ml_dsa44.keygen(bytesFromHex(seedHex));
+  const keys = ml_dsa44.keygen(hexToBytes(seedHex));
   const response = await fetch("/api/account", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ publicKey: hex(keys.publicKey) }),
+    body: JSON.stringify({ publicKey: bytesToHex(keys.publicKey) }),
   });
-  const body = (await response.json()) as { address?: string | null };
-  return body.address ?? null;
+  const body = (await response.json()) as { address?: string | null; error?: string };
+  if (!body.address) throw new Error(body.error || "The account was not created.");
+  return body.address;
 }
 
 export default function Welcome() {
   const router = useRouter();
-  const [mode, setMode] = useState<"choose" | "create" | "import">("choose");
+  const [mode, setMode] = useState<"choose" | "create" | "import" | "password">("choose");
   const [seed, setSeed] = useState("");
-  const [shown, setShown] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
 
   function enter() {
     router.replace("/");
@@ -47,41 +35,85 @@ export default function Welcome() {
   async function create() {
     setError("");
     setBusy("Creating the key");
-    const next = new Uint8Array(ml_dsa44.lengths.seed);
-    crypto.getRandomValues(next);
-    const seedHex = hex(next);
-    const wallet = addWallet(seedHex);
-    setSeed(seedHex);
-    setShown(true);
-    setMode("create");
+    const phrase = newSeedPhrase();
+    const parsed = seedFromPhrase(phrase);
     setBusy("");
-    try {
-      const address = await addressFor(seedHex);
-      if (address) rememberAddress(wallet.id, address);
-    } catch {
-      setError("The key is on this device. The factory did not return an address.");
+    if ("error" in parsed) {
+      setError(parsed.error);
+      return;
     }
+    setSeed(phrase);
+    setMode("create");
   }
 
   async function recover(event: React.FormEvent) {
     event.preventDefault();
-    const next = parseSeed(seed);
-    if (!next) {
-      setError("Use the seed phrase as 64 hex characters.");
+    const parsed = seedFromPhrase(seed);
+    if ("error" in parsed) {
+      setError(parsed.error);
+      return;
+    }
+    setSeed(parsed.phrase || parsed.seed);
+    setPassword("");
+    setConfirm("");
+    setError("");
+    setMode("password");
+  }
+
+  async function savePassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (password.length !== 6) {
+      setError("Use 6 characters.");
       return;
     }
     setError("");
-    setBusy("Reading the key");
-    const wallet = addWallet(next);
-    try {
-      const address = await addressFor(next);
-      if (address) rememberAddress(wallet.id, address);
-    } catch {
-      setError("The key is on this device. The factory did not return an address.");
-    } finally {
+    setBusy("Saving the password");
+    if (hasLock()) {
+      const ok = await unlock(password);
+      if (!ok) {
+        setBusy("");
+        setError("Wrong password.");
+        return;
+      }
+    } else if (password !== confirm) {
       setBusy("");
+      setError("Those passwords do not match.");
+      return;
+    } else {
+      const message = await protectWallets(password);
+      if (message) {
+        setBusy("");
+        setError(message);
+        return;
+      }
     }
+    const parsed = seedFromPhrase(seed);
+    if ("error" in parsed) {
+      setBusy("");
+      setError(parsed.error);
+      return;
+    }
+    const wallet = await addWallet(parsed.seed, "", parsed.phrase);
+    setBusy("Creating the account");
+    let address: string;
+    try {
+      address = await addressFor(parsed.seed);
+    } catch (error) {
+      removeWallet(wallet.id);
+      setBusy("");
+      setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
+      return;
+    }
+    rememberAddress(wallet.id, address);
+    setBusy("");
     enter();
+  }
+
+  function continueFromPhrase() {
+    setPassword("");
+    setConfirm("");
+    setError("");
+    setMode("password");
   }
 
   async function copySeed() {
@@ -94,11 +126,13 @@ export default function Welcome() {
 
   return (
     <main className="grid min-h-screen place-items-center px-5 py-10">
-      <section className="glass w-full max-w-[420px] rounded-[32px] px-7 py-10 text-center">
-        <div className="flex items-center justify-center gap-3">
-          <img src="/icon.png" alt="" className="h-14 w-14 rounded-[16px]" />
-          <p className="text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
-        </div>
+      <section className={`glass w-full rounded-[32px] px-7 py-10 text-center ${mode === "create" ? "max-w-[520px]" : "max-w-[420px]"}`}>
+        {mode === "create" ? null : (
+          <div className="flex items-center justify-center gap-3">
+            <img src="/icon.png" alt="" className="h-14 w-14 rounded-[16px]" />
+            <p className="text-[28px] font-bold tracking-[-0.04em] italic">KETRA</p>
+          </div>
+        )}
 
         {mode === "choose" ? (
           <>
@@ -127,27 +161,7 @@ export default function Welcome() {
           </>
         ) : null}
 
-        {mode === "create" && seed ? (
-          <>
-            <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
-              This is the seed phrase. It stays on this device. Copy it before you continue.
-            </p>
-            <p className="mt-5 break-all rounded-2xl bg-white/70 px-4 py-4 text-left font-mono text-[12px] leading-5">
-              {shown ? seed : "••••"}
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => setShown((value) => !value)} className="glass-field h-11 flex-1 rounded-full text-[14px]">
-                {shown ? "Hide" : "Show"}
-              </button>
-              <button type="button" onClick={copySeed} className="h-11 flex-1 rounded-full bg-black text-[14px] font-medium text-white">
-                Copy
-              </button>
-            </div>
-            <button type="button" onClick={enter} className="mt-3 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white">
-              Continue
-            </button>
-          </>
-        ) : null}
+        {mode === "create" && seed ? <SeedPhraseView phrase={seed} onCopy={copySeed} onNext={continueFromPhrase} /> : null}
 
         {mode === "import" ? (
           <form onSubmit={recover}>
@@ -165,7 +179,7 @@ export default function Welcome() {
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
-              className="glass-field mt-2 w-full resize-none rounded-2xl px-4 py-3 text-left font-mono text-[13px] leading-5 outline-none"
+              className="glass-field mt-2 w-full resize-none rounded-2xl px-4 py-3 text-left text-[15px] leading-6 outline-none"
             />
             <button
               type="submit"
@@ -184,6 +198,39 @@ export default function Welcome() {
               className="glass-field mt-3 h-12 w-full rounded-full text-[15px] font-medium"
             >
               Back
+            </button>
+          </form>
+        ) : null}
+
+        {mode === "password" ? (
+          <form onSubmit={savePassword}>
+            <p className="mx-auto mt-8 max-w-[300px] text-[15px] leading-6 text-[#6a6a6a]">
+              {hasLock() ? "Enter the 6-character password to save this wallet." : "Set a 6-character password. The wallet is saved after this."}
+            </p>
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              maxLength={6}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="6 characters"
+              className="glass-field mt-6 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
+            />
+            {hasLock() ? null : (
+              <input
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+                type="password"
+                maxLength={6}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Repeat it"
+                className="glass-field mt-3 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
+              />
+            )}
+            <button type="submit" disabled={Boolean(busy)} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
+              {busy || "Continue"}
             </button>
           </form>
         ) : null}

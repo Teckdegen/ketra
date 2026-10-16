@@ -1,9 +1,9 @@
 const path = require("path");
-const { buildBlob } = require(path.join(__dirname, "..", "..", "protocol", "js", "prepare.js"));
-const { Interface, keccak256, getAddress } = require(path.join(__dirname, "..", "..", "protocol", "node_modules", "ethers"));
+const { PROTOCOL, ethers, RPC, factoryAddress } = require("./chain.cjs");
+const { buildBlob } = require(path.join(PROTOCOL, "js", "prepare.js"));
+const { Interface, keccak256, getAddress } = ethers;
 
-const FACTORY = "0xbE8dDCBc8Ca74AA8015c62A845A468BDe8dC7651";
-const RPC = "https://rpc.mainnet.chain.robinhood.com";
+const FACTORY = factoryAddress();
 const hex = process.argv[2] || "";
 
 if (!/^[0-9a-fA-F]{2624}$/.test(hex)) {

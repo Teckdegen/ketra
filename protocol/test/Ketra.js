@@ -3,7 +3,7 @@ const fs = require("fs");
 const solc = require("solc");
 const { ethers } = require("hardhat");
 const { createKeypair, signAuthorization } = require("../js/crypto");
-const { mainnet, transferFee, defiFee, v3Router02Steps, v4SwapSteps, morphoSupplySteps, steakhouseDepositSteps, lighterDepositSteps } = require("../js/robinhood");
+const { mainnet, transferFee, defiFee, v3Router02Steps, v4SwapSteps, morphoSupplySteps, morphoWithdrawSteps, steakhouseDepositSteps, steakhouseWithdrawSteps, lighterDepositSteps, lighterClaimSteps } = require("../js/robinhood");
 
 const F1600_CODEHASH = "0x4afb4435879cdf8e50474c7aab2bc3a679caed432550ad6dba64f509309a817b";
 const F1600_RUNTIME_SIZE = 21622;
@@ -51,6 +51,35 @@ contract Vault {
         got = assets;
         return assets;
     }
+    function withdraw(uint256 assets, address receiver, address) external returns (uint256) {
+        cash.transfer(receiver, assets);
+        return assets;
+    }
+}
+contract Pull {
+    Cash public cash;
+    constructor(Cash cash_) { cash = cash_; }
+    function take(uint256 amount) external { cash.transferFrom(msg.sender, address(this), amount); }
+    function give(uint256 amount) external { cash.transfer(msg.sender, amount); }
+}
+contract Wrap {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    function deposit() external payable { balanceOf[msg.sender] += msg.value; }
+    function withdraw(uint256 amount) external {
+        balanceOf[msg.sender] -= amount;
+        (bool ok,) = msg.sender.call{value: amount}("");
+        require(ok);
+    }
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
 }
 contract Sink {
     Cash public cash;
@@ -71,7 +100,7 @@ function compileProbe() {
       JSON.stringify({
         language: "Solidity",
         sources: { "Probe.sol": { content: PROBE } },
-        settings: { outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } } },
+        settings: { outputSelection: { "*": { "*": ["abi", "evm.bytecode.object", "evm.deployedBytecode.object"] } } },
       })
     )
   );
@@ -83,6 +112,8 @@ function compileProbe() {
     cash: { abi: contracts.Cash.abi, bytecode: "0x" + contracts.Cash.evm.bytecode.object },
     vault: { abi: contracts.Vault.abi, bytecode: "0x" + contracts.Vault.evm.bytecode.object },
     sink: { abi: contracts.Sink.abi, bytecode: "0x" + contracts.Sink.evm.bytecode.object },
+    pull: { abi: contracts.Pull.abi, bytecode: "0x" + contracts.Pull.evm.bytecode.object },
+    wrap: { abi: contracts.Wrap.abi, runtime: "0x" + contracts.Wrap.evm.deployedBytecode.object },
   };
 }
 
@@ -212,6 +243,112 @@ describe("Ketra", function () {
     expect(await sink.got()).to.equal(spend - defiFee(spend));
     expect(await cash.balanceOf(feeRecipient)).to.equal(transferFee(spend) + defiFee(spend) + defiFee(spend));
     expect(await cash.balanceOf(await account.getAddress())).to.equal(0n);
+
+    const held = spend - defiFee(spend);
+    const exit = [
+      {
+        action: 1,
+        payload: coder.encode(
+          ["address", "uint256", "bytes"],
+          [await vault.getAddress(), 0, vault.interface.encodeFunctionData("withdraw", [held, payee, await account.getAddress()])]
+        ),
+      },
+    ];
+    const out = await signAuthorization(ethers.getBytes(await account.authorizationMessage(2, deadline, 0, exit)), keys.secretKey);
+    await (await account.execute(2, deadline, 0, exit, out)).wait();
+    expect(await cash.balanceOf(payee)).to.equal(spend - transferFee(spend) + held - defiFee(held));
+    expect(await cash.balanceOf(feeRecipient)).to.equal(transferFee(spend) + defiFee(spend) + defiFee(spend) + defiFee(held));
+    expect(await cash.balanceOf(await account.getAddress())).to.equal(0n);
+
+    const pull = await new ethers.ContractFactory(probe.pull.abi, probe.pull.bytecode, signer).deploy(await cash.getAddress());
+    await pull.waitForDeployment();
+    const pullAddress = await pull.getAddress();
+    const accountAddress = await account.getAddress();
+    await (await cash.mint(accountAddress, spend * 2n)).wait();
+    await (await cash.mint(pullAddress, spend)).wait();
+    const feesBefore = await cash.balanceOf(feeRecipient);
+    const measured = [
+      { action: 9, payload: coder.encode(["address", "bool"], [pullAddress, true]) },
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), pullAddress, spend]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [pullAddress, 0, pull.interface.encodeFunctionData("take", [spend])]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [pullAddress, 0, pull.interface.encodeFunctionData("give", [spend])]) },
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [await cash.getAddress(), pullAddress, 0]) },
+    ];
+    const measuredSig = await signAuthorization(ethers.getBytes(await account.authorizationMessage(3, deadline, 0, measured)), keys.secretKey);
+    await (await account.execute(3, deadline, 0, measured, measuredSig)).wait();
+    expect(await cash.balanceOf(feeRecipient)).to.equal(feesBefore + defiFee(spend) + defiFee(spend));
+    expect(await cash.balanceOf(accountAddress)).to.equal(spend * 2n - defiFee(spend) * 2n);
+
+    const cashAddress = await cash.getAddress();
+    const direct = [
+      { action: 9, payload: coder.encode(["address", "bool"], [cashAddress, true]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [cashAddress, 0, cash.interface.encodeFunctionData("transfer", [payee, 1000n])]) },
+    ];
+    const payeeBefore = await cash.balanceOf(payee);
+    const feesBeforeDirect = await cash.balanceOf(feeRecipient);
+    const directSig = await signAuthorization(ethers.getBytes(await account.authorizationMessage(4, deadline, 0, direct)), keys.secretKey);
+    await (await account.execute(4, deadline, 0, direct, directSig)).wait();
+    expect(await cash.balanceOf(payee)).to.equal(payeeBefore + 1000n);
+    expect(await cash.balanceOf(feeRecipient)).to.equal(feesBeforeDirect + defiFee(1000n));
+
+    const rawApprove = [
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [cashAddress, 0, cash.interface.encodeFunctionData("approve", [pullAddress, 1000n])]) },
+    ];
+    const rawSig = await signAuthorization(ethers.getBytes(await account.authorizationMessage(5, deadline, 0, rawApprove)), keys.secretKey);
+    await expect(account.execute(5, deadline, 0, rawApprove, rawSig)).to.be.revertedWithCustomError(account, "BadAction");
+
+    const leftover = [
+      { action: 4, payload: coder.encode(["address", "address", "uint256"], [cashAddress, pullAddress, 1000n]) },
+    ];
+    const leftoverSig = await signAuthorization(ethers.getBytes(await account.authorizationMessage(5, deadline, 0, leftover)), keys.secretKey);
+    await expect(account.execute(5, deadline, 0, leftover, leftoverSig)).to.be.revertedWithCustomError(account, "ApprovalLeft");
+
+    const random = [];
+    let expectedFee = 0n;
+    let sent = 0n;
+    for (let i = 0; i < 40; i++) {
+      const value = BigInt(1 + Math.floor(Math.random() * 1_000_000));
+      random.push({ action: 3, payload: coder.encode(["address", "address", "uint256"], [cashAddress, payee, value]) });
+      expectedFee += transferFee(value);
+      sent += value;
+    }
+    await (await cash.mint(accountAddress, sent)).wait();
+    const heldBefore = await cash.balanceOf(accountAddress);
+    const feesBeforeRandom = await cash.balanceOf(feeRecipient);
+    const payeeBeforeRandom = await cash.balanceOf(payee);
+    const randomSig = await signAuthorization(ethers.getBytes(await account.authorizationMessage(5, deadline, 0, random)), keys.secretKey);
+    await (await account.execute(5, deadline, 0, random, randomSig)).wait();
+    expect(await cash.balanceOf(feeRecipient)).to.equal(feesBeforeRandom + expectedFee);
+    expect(await cash.balanceOf(payee)).to.equal(payeeBeforeRandom + sent - expectedFee);
+    expect(await cash.balanceOf(accountAddress)).to.equal(heldBefore - sent);
+
+    const wethAddress = await account.WETH();
+    await ethers.provider.send("hardhat_setCode", [wethAddress, probe.wrap.runtime]);
+    const weth = new ethers.Contract(wethAddress, probe.wrap.abi, signer);
+    await (await weth.deposit({ value: 777_000n })).wait();
+    await (await weth.transfer(accountAddress, 777_000n)).wait();
+    await (await signer.sendTransaction({ to: accountAddress, value: 5_000_000n })).wait();
+    const ethFeesBefore = await ethers.provider.getBalance(feeRecipient);
+    const ethHeldBefore = await ethers.provider.getBalance(accountAddress);
+    const wrapAll = [
+      { action: 9, payload: coder.encode(["address", "bool"], [wethAddress, true]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [wethAddress, 5_000_000n, weth.interface.encodeFunctionData("deposit")]) },
+      { action: 1, payload: coder.encode(["address", "uint256", "bytes"], [wethAddress, 0, weth.interface.encodeFunctionData("withdraw", [ethers.MaxUint256])]) },
+      { action: 3, payload: coder.encode(["address", "address", "uint256"], [wethAddress, payee, 777_000n]) },
+    ];
+    const wrapSig = await signAuthorization(ethers.getBytes(await account.authorizationMessage(6, deadline, 0, wrapAll)), keys.secretKey);
+    await (await account.execute(6, deadline, 0, wrapAll, wrapSig)).wait();
+    expect(await weth.balanceOf(accountAddress)).to.equal(0n);
+    expect(await weth.balanceOf(payee)).to.equal(777_000n - transferFee(777_000n));
+    expect(await weth.balanceOf(feeRecipient)).to.equal(0n);
+    expect(await ethers.provider.getBalance(feeRecipient)).to.equal(ethFeesBefore + transferFee(777_000n));
+    expect(await ethers.provider.getBalance(accountAddress)).to.equal(ethHeldBefore);
+
+    for (let i = 0; i < 2000; i++) {
+      const value = BigInt(Math.floor(Math.random() * 2 ** 52)) * BigInt(1 + Math.floor(Math.random() * 1_000_000));
+      expect(await account.previewFee(2, value)).to.equal(transferFee(value));
+      expect(await account.previewFee(1, value)).to.equal(defiFee(value));
+    }
   });
 
   it("rejects a degenerate public key on a fresh factory", async function () {
@@ -310,5 +447,33 @@ describe("Robinhood calls", function () {
     const lighterArgs = coder.decode(["address", "uint16", "uint8", "uint256"], "0x" + callData(lighter, "0x8a857083").slice(10));
     expect(lighterArgs[0]).to.equal(account);
     revoked(lighter, mainnet.usdg, mainnet.lighter);
+
+    const morphoOut = morphoWithdrawSteps({
+      morpho: mainnet.morpho,
+      market: mainnet.morphoUsdgBspy,
+      assets: 1000n,
+      account,
+    });
+    const morphoOutArgs = coder.decode(
+      ["tuple(address,address,address,address,uint256)", "uint256", "uint256", "address", "address"],
+      "0x" + callData(morphoOut, "0x5c2bea49").slice(10)
+    );
+    expect(morphoOutArgs[4]).to.equal(account);
+
+    const steakOut = steakhouseWithdrawSteps({ vault: mainnet.steakUsdg, assets: 1000n, account });
+    const steakOutArgs = coder.decode(["uint256", "address", "address"], "0x" + callData(steakOut, "0xb460af94").slice(10));
+    expect(steakOutArgs[1]).to.equal(account);
+    expect(steakOutArgs[2]).to.equal(account);
+
+    const claim = lighterClaimSteps({
+      lighter: mainnet.lighter,
+      asset: mainnet.usdg,
+      amount: 1000n,
+      account,
+      assetIndex: mainnet.lighterUsdgAssetIndex,
+    });
+    const claimArgs = coder.decode(["address", "uint16", "uint128"], "0x" + callData(claim, "0x2f25807e").slice(10));
+    expect(claimArgs[0]).to.equal(account);
+    revoked(claim, mainnet.usdg, mainnet.lighter);
   });
 });

@@ -7,6 +7,10 @@ import { PortionButtons } from "../portion";
 import { compact, isoDate, money, percent, shortAddress, stamp } from "@/lib/format";
 import { HISTORY_RANGES, type HistoryKind, type HistoryMetric, type HistoryRange, type HistorySeries } from "@/lib/history";
 import { BSPY_MARKET_ID, type MarketSnapshot, type VaultSnapshot } from "@/lib/morpho";
+import { playTransaction } from "@/lib/sound";
+import { displayAmount, parseAmount } from "@/lib/amount";
+import { tokenById } from "@/lib/tokens";
+import { balanceOf, useWallet } from "@/lib/use-wallet";
 
 const EXPLORER = "https://robinhoodchain.blockscout.com";
 
@@ -35,23 +39,26 @@ function clock(seconds: number, range: HistoryRange) {
 function Chart({ kind, id, metric, format }: { kind: HistoryKind; id: string; metric: HistoryMetric; format: (value: number) => string }) {
   const gradient = useId().replace(/:/g, "");
   const [range, setRange] = useState<HistoryRange>("7d");
-  const [series, setSeries] = useState<HistorySeries | null>(null);
+  const [result, setResult] = useState<{ request: string; series: HistorySeries | null; failed: boolean } | null>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const [failed, setFailed] = useState(false);
+  const request = `/api/history?kind=${kind}&id=${id}&metric=${metric}&range=${range}`;
+  const current = result?.request === request ? result : null;
+  const series = current?.series ?? null;
+  const failed = current?.failed ?? false;
 
   useEffect(() => {
     const controller = new AbortController();
-    setSeries(null);
-    setHover(null);
-    setFailed(false);
-    fetch(`/api/history?kind=${kind}&id=${id}&metric=${metric}&range=${range}`, { signal: controller.signal })
+    fetch(request, { signal: controller.signal })
       .then((response) => response.json())
-      .then((next: HistorySeries) => setSeries(next))
+      .then((next: HistorySeries) => {
+        setHover(null);
+        setResult({ request, series: next, failed: false });
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
+        if (!controller.signal.aborted) setResult({ request, series: null, failed: true });
       });
     return () => controller.abort();
-  }, [id, kind, metric, range]);
+  }, [request]);
 
   const width = 720;
   const height = 210;
@@ -171,7 +178,7 @@ function Stat({ label, value, detail }: { label: string; value?: string; detail?
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function Row({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-t border-[#f2f2f2] py-3 text-[14px] first:border-t-0">
       <span className="text-[#8a8a8a]">{label}</span>
@@ -202,28 +209,32 @@ function DepositCard({
   asset,
   apy,
   disabled,
-  action,
-  detail,
+  kind,
   note,
   disabledLabel = "Deposits are disabled",
 }: {
   asset: string;
   apy: number;
   disabled: boolean;
-  action: string;
-  detail: string;
+  kind: "morpho" | "steakhouse";
   note: string;
   disabledLabel?: string;
 }) {
   const router = useRouter();
+  const { data } = useWallet();
   const [amount, setAmount] = useState("");
   const parsed = Number(amount);
   const sized = Number.isFinite(parsed) ? parsed : 0;
+  const usdg = tokenById("USDG")!;
+  const balance = balanceOf(data, usdg);
+  const raw = parseAmount(amount.trim(), usdg.decimals);
+  const short = raw != null && balance != null && raw > (parseAmount(balance, usdg.decimals) ?? 0n);
 
   function review(event: React.FormEvent) {
     event.preventDefault();
-    if (disabled || !amount.trim()) return;
-    router.push(`/sign?${new URLSearchParams({ action, amount, to: detail }).toString()}`);
+    if (disabled || !amount.trim() || short) return;
+    playTransaction();
+    router.push(`/sign?${new URLSearchParams({ kind, amount: amount.trim() }).toString()}`);
   }
 
   return (
@@ -238,8 +249,10 @@ function DepositCard({
         className="mt-3 w-full bg-transparent text-[2rem] leading-none font-medium tracking-[-0.04em] outline-none placeholder:text-[#dedede]"
       />
       <div className="mt-2 flex items-center justify-between text-[12px] text-[#8a8a8a]">
-        <span>Balance 0 {asset}</span>
-        <PortionButtons onAmount={setAmount} />
+        <span className={short ? "text-[#b4471c]" : ""}>
+          Balance {balance == null ? "…" : displayAmount(balance)} {asset}
+        </span>
+        <PortionButtons onAmount={setAmount} balance={balance} decimals={usdg.decimals} />
       </div>
       <div className="mt-4">
         <Row label="Network" value="Robinhood Chain" />
@@ -249,10 +262,10 @@ function DepositCard({
       </div>
       <button
         type="submit"
-        disabled={disabled || !amount.trim()}
+        disabled={disabled || !amount.trim() || short}
         className="mt-4 w-full glass-item rounded-xl py-3 text-[14px] text-[#9a9a9a] enabled:bg-black enabled:text-white"
       >
-        {disabled ? disabledLabel : amount.trim() ? "Review" : "Enter an amount"}
+        {disabled ? disabledLabel : !amount.trim() ? "Enter an amount" : short ? `Not enough ${asset}` : "Review"}
       </button>
     </form>
   );
@@ -469,8 +482,7 @@ export function VaultView({ vault }: { vault: VaultSnapshot }) {
           asset={vault.assetSymbol}
           apy={vault.netApy}
           disabled={vault.depositsDisabled}
-          action="Vault"
-          detail={vault.name}
+          kind="steakhouse"
           note="Shares come back to the account."
         />
       </div>
@@ -542,8 +554,7 @@ export function MarketView({ market, vault }: { market: MarketSnapshot; vault: V
           apy={steakhouse ? vault?.netApy ?? market.apy : market.apy}
           disabled={steakhouse ? Boolean(vault?.depositsDisabled) : !wired}
           disabledLabel={listed ? "Not wired" : "Deposits are disabled"}
-          action={wired ? "Supply" : "Vault"}
-          detail={wired ? `Morpho ${market.loanSymbol} / ${market.collateralSymbol}` : steakhouseName ?? vault?.name ?? "Steakhouse USDG"}
+          kind={wired ? "morpho" : "steakhouse"}
           note={
             wired
               ? "The position is credited to the account."

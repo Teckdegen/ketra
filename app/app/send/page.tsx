@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PortionButtons } from "../portion";
 import { TokenPicker, TokenPill } from "../token-modal";
+import { displayAmount, parseAmount } from "@/lib/amount";
+import { playTransaction } from "@/lib/sound";
 import { tokens, type Token } from "@/lib/tokens";
-
-const portfolio = tokens;
+import { balanceOf, useWallet } from "@/lib/use-wallet";
 
 export default function Send() {
   const router = useRouter();
-  const [token, setToken] = useState<Token>(portfolio[0]);
+  const { data } = useWallet();
+  const [token, setToken] = useState<Token>(tokens[0]);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [to, setTo] = useState("");
@@ -24,13 +26,18 @@ export default function Send() {
     }
   }
 
+  const balance = balanceOf(data, token);
+  const raw = parseAmount(amount.trim(), token.decimals);
   const recipient = /^0x[a-fA-F0-9]{40}$/.test(to.trim());
+  const sized = raw != null && raw > 0n;
+  const short = sized && balance != null && raw > (parseAmount(balance, token.decimals) ?? 0n);
+  const self = recipient && data?.account.toLowerCase() === to.trim().toLowerCase();
 
   function review(event: React.FormEvent) {
     event.preventDefault();
-    if (!recipient) return;
-    const query = new URLSearchParams({ action: "Send", asset: token.symbol, to: to.trim() });
-    if (amount.trim()) query.set("amount", amount.trim());
+    if (!recipient || !sized || short || self) return;
+    playTransaction();
+    const query = new URLSearchParams({ kind: "send", token: token.id, to: to.trim(), amount: amount.trim() });
     router.push(`/sign?${query.toString()}`);
   }
 
@@ -38,7 +45,7 @@ export default function Send() {
     return (
       <div className="mx-auto max-w-[640px]">
         <TokenPicker
-          tokens={portfolio}
+          tokens={tokens}
           selected={token.id}
           onClose={() => setOpen(false)}
           onSelect={(next) => {
@@ -95,17 +102,17 @@ export default function Send() {
             <TokenPill token={token} onClick={() => setOpen(true)} />
           </div>
           <div className="mt-3 flex items-center justify-end gap-2 text-[13px] text-[#8a8a8a]">
-            <span>Balance 0</span>
-            <PortionButtons onAmount={setAmount} />
+            <span className={short ? "text-[#b4471c]" : ""}>Balance {balance == null ? "…" : displayAmount(balance)}</span>
+            <PortionButtons onAmount={setAmount} balance={balance} decimals={token.decimals} />
           </div>
         </div>
 
         <button
           type="submit"
-          disabled={!recipient}
+          disabled={!recipient || !sized || short || self}
           className="mt-4 w-full glass-item rounded-xl py-3.5 text-[15px] text-[#9a9a9a] disabled:cursor-not-allowed enabled:bg-black enabled:text-white"
         >
-          {recipient ? "Review" : "Enter a recipient"}
+          {!recipient ? "Enter a recipient" : self ? "That is this wallet" : !sized ? "Enter an amount" : short ? `Not enough ${token.symbol}` : "Review"}
         </button>
       </form>
     </div>

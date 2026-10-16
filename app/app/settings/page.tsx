@@ -2,18 +2,123 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { addWallet, clearWallets, readWallets, removeWallet, setActive, type SavedWallet } from "@/lib/wallets";
+import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
+import { bytesToHex, hexToBytes, phraseFromSeed, seedFromPhrase } from "@/lib/seed";
+import { addWallet, changePassword, clearWallets, hasLock, lockApp, protectWallets, readWallets, rememberAddress, removeWallet, setActive, unlock, type SavedWallet } from "@/lib/wallets";
 import { WalletAvatar } from "../wallet-avatar";
+import { displayAmount } from "@/lib/amount";
+import { useWallet } from "@/lib/use-wallet";
 
-function parseSeed(value: string) {
-  const hex = value.trim().replace(/^0x/i, "").replace(/\s+/g, "");
-  if (!/^[0-9a-fA-F]{64}$/.test(hex)) return null;
-  return hex.toLowerCase();
+function SecurityPanel() {
+  const [locked, setLocked] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [message, setMessage] = useState("");
+  const [saved, setSaved] = useState("");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
+    setLocked(hasLock());
+  }, []);
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setSaved("");
+    if (password.length !== 6 || confirm.length !== 6 || (locked && current.length !== 6)) {
+      setMessage("Use 6 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setMessage("Those passwords do not match.");
+      return;
+    }
+    const result = locked ? await changePassword(current, password) : await protectWallets(password);
+    if (result) {
+      setMessage(result);
+      return;
+    }
+    setLocked(true);
+    setCurrent("");
+    setPassword("");
+    setConfirm("");
+    setMessage("");
+    setSaved(locked ? "Password changed." : "Password saved. It locks this device.");
+  }
+
+  return (
+    <form onSubmit={save} className="mt-3 glass rounded-[28px] px-4 py-4">
+      <p className="text-[15px] font-medium">{locked ? "Password is on" : "Password is off"}</p>
+      <p className="mt-1 text-[13px] leading-5 text-[#8a8a8a]">
+        A 6-character password locks this device. The seed phrase stays in this browser, and the password does not leave it.
+      </p>
+      {locked ? (
+        <input
+          value={current}
+          onChange={(event) => setCurrent(event.target.value)}
+          type="password"
+          maxLength={6}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Current password"
+          className="mt-4 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+        />
+      ) : null}
+      <input
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        type="password"
+        maxLength={6}
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={locked ? "New password" : "6 characters"}
+        className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+      />
+      <input
+        value={confirm}
+        onChange={(event) => setConfirm(event.target.value)}
+        type="password"
+        maxLength={6}
+        autoComplete="off"
+        spellCheck={false}
+        placeholder="Repeat it"
+        className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+      />
+      {message ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{message}</p> : null}
+      {saved ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{saved}</p> : null}
+      <div className="mt-3 flex gap-2">
+        <button type="submit" className="rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
+          {locked ? "Change password" : "Set password"}
+        </button>
+        {locked ? (
+          <button
+            type="button"
+            onClick={() => lockApp()}
+            className="glass-field rounded-lg px-4 py-2.5 text-[13px]"
+          >
+            Lock now
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
 }
 
 function shortAddress(value: string) {
   if (!value) return "No account yet";
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
+async function addressFor(seedHex: string) {
+  const keys = ml_dsa44.keygen(hexToBytes(seedHex));
+  const response = await fetch("/api/account", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ publicKey: bytesToHex(keys.publicKey) }),
+  });
+  const body = (await response.json()) as { address?: string | null; error?: string };
+  if (!body.address) throw new Error(body.error || "The account was not created.");
+  return body.address;
 }
 
 function Chevron() {
@@ -26,6 +131,8 @@ function Chevron() {
 
 export default function Settings() {
   const [wallets, setWallets] = useState<SavedWallet[]>([]);
+  const { data: overview } = useWallet();
+  const ethBalance = overview?.assets.find((asset) => asset.token.id === "ETH")?.balance;
   const [activeId, setActiveId] = useState("");
   const [ready, setReady] = useState(false);
   const [seed, setSeed] = useState("");
@@ -34,9 +141,13 @@ export default function Settings() {
   const [revealed, setRevealed] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmForget, setConfirmForget] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [recoverPassword, setRecoverPassword] = useState("");
+  const [recoverConfirm, setRecoverConfirm] = useState("");
 
   useEffect(() => {
     const state = readWallets();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
     setWallets(state.wallets);
     setActiveId(state.activeId);
     setReady(true);
@@ -52,6 +163,11 @@ export default function Settings() {
   }
 
   function switchTo(id: string) {
+    const wallet = wallets.find((item) => item.id === id);
+    if (!wallet?.address) {
+      window.location.assign("/create");
+      return;
+    }
     const state = setActive(id);
     setWallets(state.wallets);
     setActiveId(state.activeId);
@@ -60,14 +176,44 @@ export default function Settings() {
     setConfirmDelete(false);
   }
 
-  function recover(event: React.FormEvent) {
+  async function recover(event: React.FormEvent) {
     event.preventDefault();
-    const next = parseSeed(seed);
-    if (!next) {
-      setError("Use the seed phrase as 64 hex characters.");
+    const parsed = seedFromPhrase(seed);
+    if ("error" in parsed) {
+      setError(parsed.error);
       return;
     }
-    const wallet = addWallet(next);
+    if (recoverPassword.length !== 6) {
+      setError("Use 6 characters.");
+      return;
+    }
+    if (hasLock()) {
+      const ok = await unlock(recoverPassword);
+      if (!ok) {
+        setError("Wrong password.");
+        return;
+      }
+    } else if (recoverPassword !== recoverConfirm) {
+      setError("Those passwords do not match.");
+      return;
+    } else {
+      const message = await protectWallets(recoverPassword);
+      if (message) {
+        setError(message);
+        return;
+      }
+    }
+    const wallet = await addWallet(parsed.seed, "", parsed.phrase);
+    setError("Creating the account");
+    let address: string;
+    try {
+      address = await addressFor(parsed.seed);
+    } catch (error) {
+      removeWallet(wallet.id);
+      setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
+      return;
+    }
+    rememberAddress(wallet.id, address);
     const state = readWallets();
     setWallets(state.wallets);
     setActiveId(wallet.id);
@@ -78,7 +224,12 @@ export default function Settings() {
   }
 
   function reveal() {
-    setRevealed(active?.seed ?? "");
+    if (!active?.seed && !active?.phrase) return;
+    if (active.phrase) {
+      setRevealed(active.phrase);
+      return;
+    }
+    setRevealed(phraseFromSeed(active.seed));
   }
 
   async function copySeed() {
@@ -90,8 +241,22 @@ export default function Settings() {
     }
   }
 
-  function dropActive() {
+  async function dropActive(event: React.FormEvent) {
+    event.preventDefault();
     if (!active) return;
+    if (!hasLock()) {
+      setError("Set a password in Security first.");
+      return;
+    }
+    if (deletePassword.length !== 6) {
+      setError("Use 6 characters.");
+      return;
+    }
+    const ok = await unlock(deletePassword);
+    if (!ok) {
+      setError("Wrong password.");
+      return;
+    }
     const state = removeWallet(active.id);
     setWallets(state.wallets);
     setActiveId(state.activeId);
@@ -99,6 +264,7 @@ export default function Settings() {
     setError("");
     setRevealed("");
     setConfirmDelete(false);
+    setDeletePassword("");
     if (state.wallets.length === 0) window.location.assign("/create");
   }
 
@@ -127,7 +293,7 @@ export default function Settings() {
       <div className="mt-3 glass grid grid-cols-2 rounded-[28px] px-2 py-4">
         <div className="px-4">
           <p className="text-[13px] text-[#8a8a8a]">Balance</p>
-          <p className="mt-1 text-[1.6rem] font-medium tracking-[-0.03em]">0 ETH</p>
+          <p className="mt-1 truncate text-[1.6rem] font-medium tracking-[-0.03em]">{ethBalance == null ? "…" : `${displayAmount(ethBalance)} ETH`}</p>
         </div>
         <div className="border-l border-white/70 px-4">
           <p className="text-[13px] text-[#8a8a8a]">On this device</p>
@@ -182,7 +348,14 @@ export default function Settings() {
               <div className="pt-4">
                 {revealed ? (
                   <>
-                    <p className="break-all glass-field rounded-xl px-3 py-3 font-mono text-[12px] leading-5">{revealed}</p>
+                    <ol className="grid max-h-[280px] grid-cols-2 gap-2 overflow-y-auto">
+                      {revealed.split(/\s+/).filter(Boolean).map((word, index) => (
+                        <li key={index} className="glass-field flex items-center gap-2 rounded-xl px-3 py-2.5">
+                          <span className="w-5 shrink-0 text-[12px] text-[#8a8a8a]">{index + 1}</span>
+                          <span className="text-[14px] font-medium">{word}</span>
+                        </li>
+                      ))}
+                    </ol>
                     <div className="mt-3 flex gap-2">
                       <button type="button" onClick={copySeed} className="rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
                         Copy
@@ -202,21 +375,49 @@ export default function Settings() {
             ) : (
               <form onSubmit={recover} className="pt-4">
                 <p className="text-[13px] leading-5 text-[#8a8a8a]">Paste the seed phrase. It stays in this browser and is not sent anywhere.</p>
-                <input
+                <textarea
                   value={seed}
                   onChange={(event) => {
                     setSeed(event.target.value);
                     setError("");
                   }}
-                  type="password"
+                  rows={4}
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="64 hex characters"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  placeholder="12 words"
+                  className="mt-3 w-full resize-none glass-field rounded-xl px-3 py-3 text-[15px] leading-6 outline-none"
+                />
+                <input
+                  value={recoverPassword}
+                  onChange={(event) => setRecoverPassword(event.target.value)}
+                  type="password"
+                  maxLength={6}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={hasLock() ? "Password" : "6 characters"}
                   className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
                 />
+                {hasLock() ? null : (
+                  <input
+                    value={recoverConfirm}
+                    onChange={(event) => setRecoverConfirm(event.target.value)}
+                    type="password"
+                    maxLength={6}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="Repeat it"
+                    className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+                  />
+                )}
                 {error ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{error}</p> : null}
-                <button type="submit" className="mt-3 rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
-                  Recover
+                <button
+                  type="submit"
+                  disabled={error === "Creating the account"}
+                  className="mt-3 rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white disabled:opacity-50"
+                >
+                  {error === "Creating the account" ? "Creating the account" : "Recover"}
                 </button>
               </form>
             )}
@@ -229,19 +430,30 @@ export default function Settings() {
         {active ? (
           <div className="border-t border-white/60 py-4">
             {confirmDelete ? (
-              <div>
+              <form onSubmit={dropActive}>
                 <p className="text-[13px] leading-5 text-[#8a8a8a]">
-                  This removes Wallet {activeIndex + 1} from this device. The seed phrase is the only way back.
+                  This removes Wallet {activeIndex + 1} from this device. Enter the 6-character password. The seed phrase is the only way back.
                 </p>
+                <input
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  type="password"
+                  maxLength={6}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Password"
+                  className="mt-3 w-full glass-field rounded-xl px-3 py-3 text-[15px] outline-none"
+                />
+                {error ? <p className="mt-2 text-[13px] text-[#8a8a8a]">{error}</p> : null}
                 <div className="mt-3 flex gap-2">
-                  <button type="button" onClick={dropActive} className="rounded-lg bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
+                  <button type="submit" className="rounded-lg bg-[#c4362c] px-4 py-2.5 text-[13px] font-medium text-white">
                     Delete this wallet
                   </button>
-                  <button type="button" onClick={() => setConfirmDelete(false)} className="glass-field rounded-lg px-4 py-2.5 text-[13px]">
+                  <button type="button" onClick={() => { setConfirmDelete(false); setDeletePassword(""); setError(""); }} className="glass-field rounded-lg px-4 py-2.5 text-[13px]">
                     Keep it
                   </button>
                 </div>
-              </div>
+              </form>
             ) : (
               <button type="button" onClick={() => setConfirmDelete(true)} className="text-left text-[15px] text-[#c4362c]">
                 Delete this wallet
@@ -250,6 +462,9 @@ export default function Settings() {
           </div>
         ) : null}
       </div>
+
+      <h2 className="mt-8 text-[1.35rem] font-medium tracking-[-0.03em]">Security</h2>
+      <SecurityPanel />
 
       <h2 className="mt-8 text-[1.35rem] font-medium tracking-[-0.03em]">Preferences</h2>
       <div className="mt-3 glass rounded-[28px] px-4">

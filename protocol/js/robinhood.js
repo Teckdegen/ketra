@@ -102,7 +102,13 @@ const UNIVERSAL_ROUTER_EXECUTE = "0x3593564c";
 const PERMIT2_APPROVE = "0x87517c45";
 const MORPHO_SUPPLY = "0xa99aad89";
 const STEAKHOUSE_DEPOSIT = "0x6e553f65";
+const STEAKHOUSE_WITHDRAW = "0xb460af94";
+const STEAKHOUSE_REDEEM = "0xba087652";
 const LIGHTER_DEPOSIT = "0x8a857083";
+const LIGHTER_WITHDRAW = "0xd20191bd";
+const LIGHTER_CLAIM = "0x2f25807e";
+const MORPHO_WITHDRAW = "0x5c2bea49";
+const MORPHO_WITHDRAW_COLLATERAL = "0x8720316d";
 
 function v3Router02Steps({ router, tokenIn, tokenOut, fee, account, amountIn, amountOutMin, sqrtPriceLimitX96 }) {
   const args = coder.encode(
@@ -163,6 +169,28 @@ function morphoSupplySteps({ morpho, market, assets, account }) {
   });
 }
 
+function morphoWithdrawSteps({ morpho, market, assets, account }) {
+  const args = coder.encode(
+    ["tuple(address,address,address,address,uint256)", "uint256", "uint256", "address", "address"],
+    [[market.loanToken, market.collateralToken, market.oracle, market.irm, market.lltv], assets, 0, getAddress(account), getAddress(account)]
+  );
+  return allowAndCall({
+    target: morpho,
+    data: MORPHO_WITHDRAW + args.slice(2),
+  });
+}
+
+function morphoWithdrawCollateralSteps({ morpho, market, assets, account }) {
+  const args = coder.encode(
+    ["tuple(address,address,address,address,uint256)", "uint256", "address", "address"],
+    [[market.loanToken, market.collateralToken, market.oracle, market.irm, market.lltv], assets, getAddress(account), getAddress(account)]
+  );
+  return allowAndCall({
+    target: morpho,
+    data: MORPHO_WITHDRAW_COLLATERAL + args.slice(2),
+  });
+}
+
 function steakhouseDepositSteps({ vault, asset, assets, account }) {
   const args = coder.encode(["uint256", "address"], [assets, getAddress(account)]);
   return allowAndCall({
@@ -170,6 +198,22 @@ function steakhouseDepositSteps({ vault, asset, assets, account }) {
     token: asset,
     amount: assets,
     data: STEAKHOUSE_DEPOSIT + args.slice(2),
+  });
+}
+
+function steakhouseWithdrawSteps({ vault, assets, account }) {
+  const args = coder.encode(["uint256", "address", "address"], [assets, getAddress(account), getAddress(account)]);
+  return allowAndCall({
+    target: vault,
+    data: STEAKHOUSE_WITHDRAW + args.slice(2),
+  });
+}
+
+function steakhouseRedeemSteps({ vault, shares, account }) {
+  const args = coder.encode(["uint256", "address", "address"], [shares, getAddress(account), getAddress(account)]);
+  return allowAndCall({
+    target: vault,
+    data: STEAKHOUSE_REDEEM + args.slice(2),
   });
 }
 
@@ -183,6 +227,24 @@ function lighterDepositSteps({ lighter, asset, amount, account, assetIndex, rout
     token: asset,
     amount,
     data: LIGHTER_DEPOSIT + args.slice(2),
+  });
+}
+
+function lighterWithdrawSteps({ lighter, accountIndex, assetIndex, routeType, amount }) {
+  const args = coder.encode(["uint48", "uint16", "uint8", "uint64"], [accountIndex, assetIndex, routeType, amount]);
+  return allowAndCall({
+    target: lighter,
+    data: LIGHTER_WITHDRAW + args.slice(2),
+  });
+}
+
+function lighterClaimSteps({ lighter, asset, amount, account, assetIndex }) {
+  const args = coder.encode(["address", "uint16", "uint128"], [getAddress(account), assetIndex, amount]);
+  return allowAndCall({
+    target: lighter,
+    token: asset,
+    amount,
+    data: LIGHTER_CLAIM + args.slice(2),
   });
 }
 
@@ -212,7 +274,13 @@ module.exports = {
   v4SwapInput,
   v4SwapSteps,
   morphoSupplySteps,
+  morphoWithdrawSteps,
+  morphoWithdrawCollateralSteps,
   steakhouseDepositSteps,
+  steakhouseWithdrawSteps,
+  steakhouseRedeemSteps,
   lighterDepositSteps,
+  lighterWithdrawSteps,
+  lighterClaimSteps,
   allowAndCall,
 };

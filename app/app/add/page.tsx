@@ -2,84 +2,118 @@
 
 import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { addWallet, rememberAddress } from "@/lib/wallets";
-
-function hex(bytes: Uint8Array) {
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function bytesFromHex(value: string) {
-  const out = new Uint8Array(value.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(value.slice(i * 2, i * 2 + 2), 16);
-  return out;
-}
-
-function parseSeed(value: string) {
-  const next = value.trim().replace(/^0x/i, "").replace(/\s+/g, "");
-  if (!/^[0-9a-fA-F]{64}$/.test(next)) return null;
-  return next.toLowerCase();
-}
+import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
+import { addWallet, hasLock, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
+import { SeedPhraseView } from "../seed-phrase";
 
 async function addressFor(seedHex: string) {
-  const keys = ml_dsa44.keygen(bytesFromHex(seedHex));
+  const keys = ml_dsa44.keygen(hexToBytes(seedHex));
   const response = await fetch("/api/account", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ publicKey: hex(keys.publicKey) }),
+    body: JSON.stringify({ publicKey: bytesToHex(keys.publicKey) }),
   });
-  const body = (await response.json()) as { address?: string | null };
-  return body.address ?? null;
+  const body = (await response.json()) as { address?: string | null; error?: string };
+  if (!body.address) throw new Error(body.error || "The account was not created.");
+  return body.address;
 }
 
 export default function AddWallet() {
-  const [mode, setMode] = useState<"choose" | "create" | "import">("choose");
+  const router = useRouter();
+  const [mode, setMode] = useState<"choose" | "create" | "import" | "password">("choose");
   const [seed, setSeed] = useState("");
-  const [shown, setShown] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
 
   function done() {
-    window.location.assign("/");
+    router.replace("/");
   }
 
   async function create() {
     setError("");
     setBusy("Creating the key");
-    const next = new Uint8Array(ml_dsa44.lengths.seed);
-    crypto.getRandomValues(next);
-    const seedHex = hex(next);
-    const wallet = addWallet(seedHex);
-    setSeed(seedHex);
-    setShown(true);
-    setMode("create");
+    const phrase = newSeedPhrase();
+    const parsed = seedFromPhrase(phrase);
     setBusy("");
-    try {
-      const address = await addressFor(seedHex);
-      if (address) rememberAddress(wallet.id, address);
-    } catch {
-      setError("The key is on this device. The factory did not return an address.");
+    if ("error" in parsed) {
+      setError(parsed.error);
+      return;
     }
+    setSeed(phrase);
+    setMode("create");
   }
 
   async function recover(event: React.FormEvent) {
     event.preventDefault();
-    const next = parseSeed(seed);
-    if (!next) {
-      setError("Use the seed phrase as 64 hex characters.");
+    const parsed = seedFromPhrase(seed);
+    if ("error" in parsed) {
+      setError(parsed.error);
+      return;
+    }
+    setSeed(parsed.phrase || parsed.seed);
+    setPassword("");
+    setConfirm("");
+    setError("");
+    setMode("password");
+  }
+
+  function askPassword() {
+    setPassword("");
+    setConfirm("");
+    setError("");
+    setMode("password");
+  }
+
+  async function savePassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (password.length !== 6) {
+      setError("Use 6 characters.");
       return;
     }
     setError("");
-    setBusy("Reading the key");
-    const wallet = addWallet(next);
-    try {
-      const address = await addressFor(next);
-      if (address) rememberAddress(wallet.id, address);
-    } catch {
-      setError("The key is on this device. The factory did not return an address.");
-    } finally {
+    setBusy("Saving the password");
+    if (hasLock()) {
+      const ok = await unlock(password);
+      if (!ok) {
+        setBusy("");
+        setError("Wrong password.");
+        return;
+      }
+    } else if (password !== confirm) {
       setBusy("");
+      setError("Those passwords do not match.");
+      return;
+    } else {
+      const message = await protectWallets(password);
+      if (message) {
+        setBusy("");
+        setError(message);
+        return;
+      }
     }
+    const parsed = seedFromPhrase(seed);
+    if ("error" in parsed) {
+      setBusy("");
+      setError(parsed.error);
+      return;
+    }
+    const wallet = await addWallet(parsed.seed, "", parsed.phrase);
+    setBusy("Creating the account");
+    let address: string;
+    try {
+      address = await addressFor(parsed.seed);
+    } catch (error) {
+      removeWallet(wallet.id);
+      setBusy("");
+      setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
+      return;
+    }
+    rememberAddress(wallet.id, address);
+    setBusy("");
     done();
   }
 
@@ -93,7 +127,13 @@ export default function AddWallet() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <h1 className="text-[1.7rem] font-medium tracking-[-0.03em]">Add a wallet</h1>
+      {mode === "create" && seed ? null : mode === "password" ? null : <h1 className="text-[1.7rem] font-medium tracking-[-0.03em]">Add a wallet</h1>}
+
+      {mode === "create" && seed ? (
+        <div className="glass rounded-[32px] px-6 py-8">
+          <SeedPhraseView phrase={seed} onCopy={copySeed} onNext={askPassword} />
+        </div>
+      ) : null}
 
       {mode === "choose" ? (
         <>
@@ -122,24 +162,6 @@ export default function AddWallet() {
         </>
       ) : null}
 
-      {mode === "create" && seed ? (
-        <div className="mt-6 glass rounded-[28px] p-5">
-          <p className="text-[13px] leading-5 text-[#8a8a8a]">This is the seed phrase. It stays on this device. Copy it before you leave.</p>
-          <p className="mt-3 break-all font-mono text-[12px] leading-5">{shown ? seed : "••••"}</p>
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => setShown((value) => !value)} className="glass-field rounded-lg px-4 py-2.5 text-[13px]">
-              {shown ? "Hide" : "Show"}
-            </button>
-            <button type="button" onClick={copySeed} className="rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
-              Copy
-            </button>
-            <button type="button" onClick={done} className="rounded-lg bg-black px-4 py-2.5 text-[13px] font-medium text-white">
-              Done
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {mode === "import" ? (
         <form onSubmit={recover} className="mt-6 glass rounded-[28px] p-5">
           <p className="text-[13px] leading-5 text-[#8a8a8a]">Enter the seed phrase. It stays in this browser and is not sent.</p>
@@ -154,14 +176,14 @@ export default function AddWallet() {
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
-            className="glass-field mt-2 w-full resize-none rounded-2xl px-4 py-3 font-mono text-[13px] leading-5 outline-none"
+            className="glass-field mt-2 w-full resize-none rounded-2xl px-4 py-3 text-[15px] leading-6 outline-none"
           />
           <button
             type="submit"
             disabled={Boolean(busy)}
             className="mt-3 h-11 w-full rounded-full bg-black text-[14px] font-medium text-white disabled:opacity-50"
           >
-            {busy || "Add this wallet"}
+            {busy || "Continue"}
           </button>
           <button
             type="button"
@@ -173,6 +195,39 @@ export default function AddWallet() {
             className="glass-field mt-3 h-11 w-full rounded-full text-[14px] font-medium"
           >
             Back
+          </button>
+        </form>
+      ) : null}
+
+      {mode === "password" ? (
+        <form onSubmit={savePassword} className="glass rounded-[32px] px-6 py-8">
+          <p className="text-center text-[14px] leading-6 text-[#6a6a6a]">
+            {hasLock() ? "Enter the 6-character password to save this wallet." : "Set a 6-character password. The wallet is saved after this."}
+          </p>
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            type="password"
+            maxLength={6}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="6 characters"
+            className="glass-field mt-5 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
+          />
+          {hasLock() ? null : (
+            <input
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+              type="password"
+              maxLength={6}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Repeat it"
+              className="glass-field mt-3 h-12 w-full rounded-2xl px-4 text-center text-[18px] tracking-[0.3em] outline-none"
+            />
+          )}
+          <button type="submit" disabled={Boolean(busy)} className="mt-4 h-12 w-full rounded-full bg-black text-[15px] font-medium text-white disabled:opacity-50">
+            {busy || "Save wallet"}
           </button>
         </form>
       ) : null}

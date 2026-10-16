@@ -47,6 +47,24 @@ async function main() {
     feeAddress
   );
   await factory.waitForDeployment();
+  const factoryReceipt = await factory.deploymentTransaction().wait();
+
+  fs.mkdirSync("deployments", { recursive: true });
+  fs.writeFileSync(
+    `deployments/${hre.network.name}.json`,
+    JSON.stringify(
+      {
+        chainId: Number((await hre.ethers.provider.getNetwork()).chainId),
+        helper,
+        verifier: await verifier.getAddress(),
+        factory: await factory.getAddress(),
+        block: factoryReceipt.blockNumber,
+        feeRecipient: feeAddress,
+      },
+      null,
+      2
+    ) + "\n"
+  );
 
   console.log("helper  ", helper);
   console.log("verifier", await verifier.getAddress());

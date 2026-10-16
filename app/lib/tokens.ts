@@ -1,5 +1,6 @@
 export type Token = {
-  id: "ETH" | "WETH" | "USDG";
+  /** "ETH", "WETH", "USDG", or a lowercase contract address for any other token. */
+  id: string;
   symbol: string;
   name: string;
   decimals: number;
@@ -37,10 +38,23 @@ export const tokens: Token[] = [
   },
 ];
 
+export function isAddress(value: string) {
+  return /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
 export function tokenById(id: string) {
-  return tokens.find((token) => token.id === id) ?? null;
+  return tokens.find((token) => token.id === id) ?? tokenByAddress(id);
+}
+
+export function tokenByAddress(address: string) {
+  if (!isAddress(address)) return null;
+  return tokens.find((token) => token.address?.toLowerCase() === address.toLowerCase()) ?? null;
 }
 
 export function poolAddress(token: Token) {
   return token.address ?? WETH_ADDRESS;
+}
+
+export function isWrapPair(a: Token, b: Token) {
+  return (a.id === "ETH" && b.id === "WETH") || (a.id === "WETH" && b.id === "ETH");
 }

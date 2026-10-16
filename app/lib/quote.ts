@@ -1,4 +1,6 @@
-import { poolAddress, tokenById, WETH_ADDRESS } from "./tokens";
+import { formatAmount, parseAmount } from "./amount";
+import { resolveToken } from "./chain";
+import { isWrapPair, poolAddress, WETH_ADDRESS, type Token } from "./tokens";
 
 const RPC = "https://rpc.mainnet.chain.robinhood.com";
 const V4_QUOTER = "0x8dc178efb8111bb0973dd9d722ebeff267c98f94";
@@ -24,20 +26,6 @@ function word(value: bigint) {
 
 function addr(value: string) {
   return value.toLowerCase().replace(/^0x/, "").padStart(64, "0");
-}
-
-function parseAmount(value: string, decimals: number) {
-  if (!/^\d+(\.\d+)?$/.test(value)) return null;
-  const [whole, fraction = ""] = value.split(".");
-  const padded = fraction.slice(0, decimals).padEnd(decimals, "0");
-  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(padded || "0");
-}
-
-function formatAmount(value: bigint, decimals: number) {
-  const base = 10n ** BigInt(decimals);
-  const whole = value / base;
-  const fraction = (value % base).toString().padStart(decimals, "0").replace(/0+$/, "");
-  return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
 function readWord(data: string, index: number) {
@@ -85,59 +73,91 @@ function encodeV2(amount: bigint, path: string[]) {
 
 async function best(calls: Promise<bigint | null>[]) {
   const amounts = await Promise.all(calls);
-  return amounts.reduce<bigint | null>((bestAmount, amount) => {
-    if (amount == null || amount === 0n) return bestAmount;
-    if (bestAmount == null || amount > bestAmount) return amount;
-    return bestAmount;
+  return amounts.reduce<{ amount: bigint; index: number } | null>((winner, amount, index) => {
+    if (amount == null || amount === 0n) return winner;
+    if (winner == null || amount > winner.amount) return { amount, index };
+    return winner;
   }, null);
 }
 
-export async function quoteSwap(payId: string, receiveId: string, amountText: string): Promise<Quote> {
-  const pay = tokenById(payId);
-  const receive = tokenById(receiveId);
-  const amount = pay ? parseAmount(amountText, pay.decimals) : null;
-  if (!pay || !receive || amount == null || amount === 0n) return { version: null, amountOut: null };
+const DEFI_FEE_BPS = 50n;
+
+export function afterFee(amount: bigint) {
+  return amount - (amount * DEFI_FEE_BPS) / 10000n;
+}
+
+export function defiFee(amount: bigint) {
+  return (amount * DEFI_FEE_BPS) / 10000n;
+}
+
+export { formatAmount, parseAmount };
+
+export type Route = {
+  version: "v4" | "v3" | "v2";
+  amountIn: bigint;
+  amountOut: bigint;
+  tokenIn: string;
+  tokenOut: string;
+  fee?: number;
+  tick?: number;
+  path?: string[];
+};
+
+export async function findRoute(pay: Token, receive: Token, amount: bigint): Promise<Route | "wrap" | null> {
+  if (amount === 0n || pay.id === receive.id) return null;
+  if (isWrapPair(pay, receive)) return "wrap";
+  const quoted = afterFee(amount);
+  if (quoted === 0n) return null;
 
   const tokenIn = poolAddress(pay);
   const tokenOut = poolAddress(receive);
-  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) {
-    return { version: "wrap", amountOut: formatAmount(amount, receive.decimals) };
-  }
+  if (tokenIn.toLowerCase() === tokenOut.toLowerCase()) return "wrap";
 
   const [currency0, currency1] = [tokenIn, tokenOut].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
   const zeroForOne = tokenIn.toLowerCase() === currency0.toLowerCase();
+  const base = { amountIn: amount, tokenIn, tokenOut };
 
-  const v4 = await best(
-    V4_POOLS.map(async (pool) => {
-      const data = await call(V4_QUOTER, encodeV4(currency0, currency1, pool.fee, pool.tick, zeroForOne, amount));
-      return data ? readWord(data, 0) : null;
-    }),
-  );
-  if (v4) return { version: "v4", amountOut: formatAmount(v4, receive.decimals) };
-
-  const v3 = await best(
-    V3_FEES.map(async (fee) => {
-      const data = await call(V3_QUOTER, encodeV3(tokenIn, tokenOut, amount, fee));
-      return data ? readWord(data, 0) : null;
-    }),
-  );
-  if (v3) return { version: "v3", amountOut: formatAmount(v3, receive.decimals) };
-
-  const direct = await call(V2_ROUTER, encodeV2(amount, [tokenIn, tokenOut]));
-  if (direct) {
-    const length = Number(readWord(direct, 1));
-    const out = readWord(direct, 1 + length);
-    if (out > 0n) return { version: "v2", amountOut: formatAmount(out, receive.decimals) };
-  }
-
+  const paths = [[tokenIn, tokenOut]];
   if (tokenIn.toLowerCase() !== WETH_ADDRESS.toLowerCase() && tokenOut.toLowerCase() !== WETH_ADDRESS.toLowerCase()) {
-    const through = await call(V2_ROUTER, encodeV2(amount, [tokenIn, WETH_ADDRESS, tokenOut]));
-    if (through) {
-      const length = Number(readWord(through, 1));
-      const out = readWord(through, 1 + length);
-      if (out > 0n) return { version: "v2", amountOut: formatAmount(out, receive.decimals) };
-    }
+    paths.push([tokenIn, WETH_ADDRESS, tokenOut]);
   }
 
-  return { version: null, amountOut: null };
+  const [v4, v3, v2] = await Promise.all([
+    best(
+      V4_POOLS.map(async (pool) => {
+        const data = await call(V4_QUOTER, encodeV4(currency0, currency1, pool.fee, pool.tick, zeroForOne, quoted));
+        return data ? readWord(data, 0) : null;
+      }),
+    ),
+    best(
+      V3_FEES.map(async (fee) => {
+        const data = await call(V3_QUOTER, encodeV3(tokenIn, tokenOut, quoted, fee));
+        return data ? readWord(data, 0) : null;
+      }),
+    ),
+    best(
+      paths.map(async (path) => {
+        const result = await call(V2_ROUTER, encodeV2(quoted, path));
+        if (!result) return null;
+        const length = Number(readWord(result, 1));
+        return readWord(result, 1 + length);
+      }),
+    ),
+  ]);
+
+  const routes: Route[] = [];
+  if (v4) routes.push({ ...base, version: "v4", amountOut: v4.amount, fee: V4_POOLS[v4.index].fee, tick: V4_POOLS[v4.index].tick });
+  if (v3) routes.push({ ...base, version: "v3", amountOut: v3.amount, fee: V3_FEES[v3.index] });
+  if (v2) routes.push({ ...base, version: "v2", amountOut: v2.amount, path: paths[v2.index] });
+  return routes.reduce<Route | null>((winner, route) => (winner == null || route.amountOut > winner.amountOut ? route : winner), null);
+}
+
+export async function quoteSwap(payId: string, receiveId: string, amountText: string): Promise<Quote> {
+  const [pay, receive] = await Promise.all([resolveToken(payId), resolveToken(receiveId)]);
+  const amount = pay ? parseAmount(amountText, pay.decimals) : null;
+  if (!pay || !receive || amount == null || amount === 0n) return { version: null, amountOut: null };
+  const route = await findRoute(pay, receive, amount);
+  if (route === "wrap") return { version: "wrap", amountOut: formatAmount(amount, receive.decimals) };
+  if (!route) return { version: null, amountOut: null };
+  return { version: route.version, amountOut: formatAmount(route.amountOut, receive.decimals) };
 }

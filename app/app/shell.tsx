@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { readWallets } from "@/lib/wallets";
+import { LockScreen } from "./lock-screen";
+import { readWallets, sessionLocked } from "@/lib/wallets";
 
 const items = [
   { href: "/", label: "Portfolio", icon: "grid" },
@@ -65,23 +66,32 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
   const [entered, setEntered] = useState<boolean | null>(null);
+  const [gate, setGate] = useState<"lock" | "open">("open");
+  const [accountLabel, setAccountLabel] = useState("No account yet");
 
   useEffect(() => {
     function sync() {
       if (localStorage.getItem("ketra-rail") === "closed") setOpen(false);
-      setEntered(readWallets().wallets.length > 0);
+      const state = readWallets();
+      const hasAccount = state.wallets.some((wallet) => wallet.address);
+      const active = state.wallets.find((wallet) => wallet.id === state.activeId);
+      setEntered(hasAccount);
+      if (!hasAccount && path !== "/start" && path !== "/create") router.replace("/create");
+      setGate(sessionLocked() && hasAccount ? "lock" : "open");
+      setAccountLabel(active?.address ? `${active.address.slice(0, 6)}…${active.address.slice(-4)}` : "No account yet");
     }
     sync();
     window.addEventListener("pageshow", sync);
-    return () => window.removeEventListener("pageshow", sync);
-  }, [path]);
-
-  useEffect(() => {
-    if (entered === false && path !== "/start" && path !== "/create") router.replace("/create");
-  }, [entered, path, router]);
+    window.addEventListener("ketra-lock", sync);
+    return () => {
+      window.removeEventListener("pageshow", sync);
+      window.removeEventListener("ketra-lock", sync);
+    };
+  }, [path, router]);
 
   const welcome = path === "/start" || path === "/create";
   const hold = !welcome && entered === false;
+  const hide = hold || gate !== "open";
 
   function setRail(next: boolean) {
     setOpen(next);
@@ -89,7 +99,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`min-h-screen text-[#111] ${hold ? "invisible" : ""}`}>
+    <div className="min-h-screen text-[#111]">
+      {gate === "lock" ? <LockScreen onUnlock={() => setGate("open")} /> : null}
+      <div className={hide ? "invisible" : ""}>
       <aside className={`shell-aside glass fixed top-3 bottom-3 left-3 z-30 w-[248px] flex-col rounded-[28px] px-3 py-5 ${welcome || !open ? "hidden" : "hidden md:flex"}`}>
         <div className="flex items-center justify-between px-3">
           <Link href="/" className="text-[15px] font-bold tracking-[-0.04em] italic">
@@ -123,7 +135,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <p className="px-3 pt-4 text-[12px] text-[#8a8a8a]">No account yet</p>
+        <p className="px-3 pt-4 text-[12px] text-[#8a8a8a]">{accountLabel}</p>
       </aside>
 
       {!welcome && !open ? (
@@ -140,7 +152,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className={`shell-main min-w-0 pb-32 transition-[padding] duration-200 md:pb-8 ${welcome ? "pb-0" : open ? "md:pl-[276px]" : "md:pl-[76px]"}`}>
-        <div className={welcome ? "" : "px-5 py-8 md:px-10 md:py-9"}>{children}</div>
+        <div key={gate} className={welcome ? "" : "px-5 py-8 md:px-10 md:py-9"}>
+          {children}
+        </div>
       </div>
 
       <nav className={`shell-tabbar glass fixed inset-x-3 bottom-3 z-30 grid grid-cols-5 rounded-[26px] px-1 pt-1 pb-[max(6px,env(safe-area-inset-bottom))] md:hidden ${welcome ? "!hidden" : ""}`}>
@@ -158,6 +172,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+      </div>
     </div>
   );
 }

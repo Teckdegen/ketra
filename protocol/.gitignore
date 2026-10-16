@@ -5,4 +5,4 @@ out/
 broadcast/
 .env
 quantum-key.json
-deployments/
+deployments/localhost.json
