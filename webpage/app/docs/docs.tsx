@@ -12,6 +12,7 @@ const toc = [
   { id: "spend", label: "How a spend works" },
   { id: "batch", label: "Batches and allowlists" },
   { id: "fees", label: "Fees" },
+  { id: "ktr", label: "$KTR" },
   { id: "robinhood", label: "Robinhood Chain" },
   { id: "contracts", label: "Contracts" },
   { id: "defi", label: "What you can do" },
@@ -42,6 +43,7 @@ const nav = [
       { href: "#signature", label: "The signature" },
       { href: "#spend", label: "How a spend works" },
       { href: "#fees", label: "Fees" },
+      { href: "#ktr", label: "$KTR" },
       { href: "#safety", label: "Trust model" },
     ],
   },
@@ -54,21 +56,21 @@ const ketraContracts = [
 ];
 
 const chainContracts = [
-  { name: "WETH", address: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73", note: "Wrapped ETH", logo: null },
-  { name: "USDG", address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", note: "Stable used in supply and swaps", logo: null },
+  { name: "WETH", address: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73", note: "Wrapped ETH", logo: "/logos/weth.svg" },
+  { name: "USDG", address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", note: "Stable used in supply and swaps", logo: "/logos/usdg.svg" },
   { name: "Uniswap SwapRouter02", address: "0xCaf681a66D020601342297493863E78C959E5cb2", note: "v3 exactInputSingle", logo: "/logos/uniswap.svg" },
   { name: "Uniswap v3 factory", address: "0x1f7d7550B1b028f7571E69A784071F0205FD2EfA", note: "Pool factory", logo: "/logos/uniswap.svg" },
   { name: "Universal Router", address: "0x8876789976dEcBfCbBbe364623C63652db8C0904", note: "v4 swap path", logo: "/logos/uniswap.svg" },
   { name: "Permit2", address: "0x000000000022D473030F116dDEE9F6B43aC78BA3", note: "Allowance path for v4", logo: null },
   { name: "v4 PoolManager", address: "0x8366a39CC670B4001A1121B8F6A443A643e40951", note: "Pool manager", logo: "/logos/uniswap.svg" },
   { name: "Morpho Blue", address: "0x9D53d5E3bd5E8d4Cbfa6DB1ca238AEA02E651010", note: "USDG / bSPY supply market", logo: "/logos/morpho.png" },
-  { name: "bSPY", address: "0xC3ED4a5A7dB4102F4Ed37Af26ef0d3f21e2360c1", note: "Morpho market collateral", logo: null },
+  { name: "bSPY", address: "0xC3ED4a5A7dB4102F4Ed37Af26ef0d3f21e2360c1", note: "Morpho market collateral", logo: "/logos/bspy.png" },
   { name: "Morpho oracle", address: "0xac6E0472981877dcebb1527E417b5CB6133721b3", note: "Market oracle", logo: "/logos/morpho.png" },
   { name: "Morpho IRM", address: "0x2BD3d5965B26B51814AC95127B2b80dD6CcC0fa1", note: "Interest rate model", logo: "/logos/morpho.png" },
   { name: "Steakhouse USDG vault", address: "0xBeEff033F34C046626B8D0A041844C5d1A5409dd", note: "ERC4626 vault", logo: "/logos/steakhouse.png" },
   { name: "Lighter", address: "0x94bAB9693Ba2f6358507eFfcbd372b0660AFfF9d", note: "USDG margin deposit", logo: "/logos/lighter.png" },
-  { name: "Pons factory", address: "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e", note: "Bonding curve factory", logo: null },
-  { name: "Pons meme hook", address: "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044", note: "Meme hook", logo: null },
+  { name: "Pons factory", address: "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e", note: "Launchpad factory", logo: "/logos/pons.png" },
+  { name: "Pons meme hook", address: "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044", note: "Meme hook", logo: "/logos/pons.png" },
 ];
 
 function NavIcon({ kind }: { kind: "play" | "book" | "list" }) {
@@ -404,6 +406,26 @@ export function Docs() {
               </p>
             </section>
 
+            <section id="ktr" className="docs-prose scroll-mt-24 pt-12">
+              <h2>$KTR</h2>
+              <p>
+                $KTR is the stake that runs Ketra&apos;s gas rail. Ketra already separates the owner key, which can move funds, from the gas key, which only pays network fee and submits execute. $KTR is how that gas path gets economic weight.
+              </p>
+              <ul>
+                <li>Relayers and gas payers stake $KTR to submit executes for accounts.</li>
+                <li>Accounts that hold or lock $KTR get cheaper or priority relay.</li>
+                <li>Unstaked or abusive relay can be cut off or slashed under the rail rules.</li>
+              </ul>
+              <p>
+                Demand comes from using the wallet, not from a blank narrative. Competitors cannot fake that moat without copying the account model and the relay stack. Short form: no stake, no priority execute.
+              </p>
+              <div className="docs-note">
+                <p>
+                  $KTR is the product token for the gas rail. It is not a second owner key and it cannot spend from a Ketra account. Network gas on Robinhood Chain remains ETH.
+                </p>
+              </div>
+            </section>
+
             <section id="robinhood" className="docs-prose scroll-mt-24 pt-12">
               <h2>Robinhood Chain</h2>
               <p>
@@ -493,8 +515,11 @@ export function Docs() {
                 {[
                   { src: "/logos/uniswap.svg", label: "Uniswap" },
                   { src: "/logos/morpho.png", label: "Morpho" },
+                  { src: "/logos/bspy.png", label: "bSPY" },
                   { src: "/logos/steakhouse.png", label: "Steakhouse" },
                   { src: "/logos/lighter.png", label: "Lighter" },
+                  { src: "/logos/pons.png", label: "pons" },
+                  { src: "/logos/weth.svg", label: "WETH" },
                 ].map((item) => (
                   <span key={item.label} className="inline-flex items-center gap-2 rounded-full border border-[#ebe7e0] bg-white px-3 py-1.5 text-[13px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
