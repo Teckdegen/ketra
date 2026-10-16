@@ -5,12 +5,10 @@ import { useState } from "react";
 const CHROME_STORE =
   process.env.NEXT_PUBLIC_CHROME_STORE_URL || "https://chromewebstore.google.com/detail/ketra";
 
-const RELEASE = "https://github.com/Teckdegen/ketra/releases/download/v0.1.0";
-
 const DESKTOP = {
-  mac: { label: "macOS", href: `${RELEASE}/Ketra-macOS.zip` },
-  windows: { label: "Windows", href: `${RELEASE}/Ketra-Windows.zip` },
-  linux: { label: "Linux", href: `${RELEASE}/Ketra-linux.zip` },
+  mac: { label: "macOS", href: "/api/download/mac" },
+  windows: { label: "Windows", href: "/api/download/windows" },
+  linux: { label: "Linux", href: "/api/download/linux" },
 } as const;
 
 type DesktopTarget = keyof typeof DESKTOP | null;
@@ -145,24 +143,47 @@ function SoonTile({
 export function GetStarted() {
   const [target, setTarget] = useState<DesktopTarget>(null);
   const [accepted, setAccepted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   function beginDesktop(next: DesktopTarget) {
     setTarget(next);
     setAccepted(false);
+    setError("");
   }
 
-  function confirmDownload() {
-    if (!accepted || !target) return;
+  async function confirmDownload() {
+    if (!accepted || !target || busy) return;
+    setBusy(true);
+    setError("");
     const href = DESKTOP[target].href;
-    const link = document.createElement("a");
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTarget(null);
-    setAccepted(false);
+    try {
+      const probe = await fetch(href, { method: "HEAD", redirect: "manual" });
+      if (probe.status === 404) {
+        const body = (await fetch(href, { redirect: "manual" }).then((response) => response.json().catch(() => null))) as {
+          error?: string;
+        } | null;
+        setError(body?.error || "Download is unavailable right now.");
+        return;
+      }
+      if (probe.status !== 200 && probe.status !== 302 && probe.status !== 301) {
+        setError("Download is unavailable right now.");
+        return;
+      }
+      // Same origin hop: browser follows our API redirect and saves the zip. No GitHub tab.
+      const link = document.createElement("a");
+      link.href = href;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTarget(null);
+      setAccepted(false);
+    } catch {
+      setError("Download is unavailable right now.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -288,12 +309,14 @@ export function GetStarted() {
                 .
               </span>
             </label>
+            {error ? <p className="mt-3 text-[13px] text-[#b4471c]">{error}</p> : null}
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setTarget(null);
                   setAccepted(false);
+                  setError("");
                 }}
                 className="flex-1 rounded-full bg-[#ececec] py-3 text-[13px] font-medium hover:bg-[#e4e4e4]"
               >
@@ -301,11 +324,11 @@ export function GetStarted() {
               </button>
               <button
                 type="button"
-                disabled={!accepted}
-                onClick={confirmDownload}
+                disabled={!accepted || busy}
+                onClick={() => void confirmDownload()}
                 className="flex-1 rounded-full bg-black py-3 text-[13px] font-medium text-white enabled:hover:bg-[#222] disabled:opacity-35"
               >
-                Download
+                {busy ? "Starting…" : "Download"}
               </button>
             </div>
           </div>
