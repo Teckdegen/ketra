@@ -267,7 +267,7 @@ export function Docs() {
                 </p>
               </div>
               <p>
-                You can use Ketra in the browser at wallet.ketra.network, through the Chrome extension, or through the desktop apps for Windows 10+ and Linux x64. macOS, Brave, Edge, App Store, and Google Play are not shipping yet.
+                You can use Ketra in the browser at wallet.ketra.network, or through the desktop apps for Windows 10+ and Linux x64. Chrome, Brave, Edge, macOS, App Store, and Google Play are not shipping yet.
               </p>
             </section>
 
@@ -551,11 +551,6 @@ export function Docs() {
                       <td>Modern browser at wallet.ketra.network</td>
                     </tr>
                     <tr>
-                      <td>Chrome extension</td>
-                      <td>Live</td>
-                      <td>Chrome Web Store listing</td>
-                    </tr>
-                    <tr>
                       <td>Windows desktop</td>
                       <td>Live</td>
                       <td>Windows 10 or newer, x64 portable exe</td>
@@ -571,7 +566,7 @@ export function Docs() {
                       <td>Intel and Apple Silicon builds planned</td>
                     </tr>
                     <tr>
-                      <td>Brave / Edge</td>
+                      <td>Chrome / Brave / Edge</td>
                       <td>Coming soon</td>
                       <td></td>
                     </tr>

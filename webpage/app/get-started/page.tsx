@@ -3,7 +3,7 @@ import { GetStarted } from "./start";
 
 export const metadata: Metadata = {
   title: "Get started · Ketra",
-  description: "Install Ketra on Chrome, or download the desktop app for Windows and Linux. macOS coming soon.",
+  description: "Open the Ketra web wallet, or download the desktop app for Windows and Linux.",
 };
 
 export default function GetStartedPage() {

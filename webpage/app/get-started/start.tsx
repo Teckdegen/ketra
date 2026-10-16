@@ -2,9 +2,6 @@
 
 import { useState } from "react";
 
-const CHROME_STORE =
-  process.env.NEXT_PUBLIC_CHROME_STORE_URL || "https://chromewebstore.google.com/detail/ketra";
-
 const DESKTOP = {
   windows: { label: "Windows", href: "/api/download/windows", logo: "/logos/platforms/windows.svg", note: "Windows 10+" },
   linux: { label: "Linux", href: "/api/download/linux", logo: "/logos/platforms/linux.svg", note: "x64 AppImage" },
@@ -97,7 +94,7 @@ export function GetStarted() {
         <div className="text-center">
           <h1 className="text-[1.85rem] leading-none font-medium tracking-[-0.04em] text-black sm:text-[2.35rem]">Get started</h1>
           <p className="mx-auto mt-2 max-w-[48ch] text-[13px] leading-5 text-[#8a8a8a] sm:text-[14px]">
-            Web wallet, Chrome, and desktop for Windows 10+ and Linux x64. macOS, Brave, Edge, and mobile are coming soon.
+            Web wallet plus desktop for Windows 10+ and Linux x64. Chrome, Brave, Edge, macOS, and mobile are coming soon.
           </p>
         </div>
 
@@ -105,16 +102,7 @@ export function GetStarted() {
           <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
             <h2 className="text-center text-[13px] font-semibold tracking-[-0.02em] text-[#111]">Extension</h2>
             <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-4">
-              <a
-                href={CHROME_STORE}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex w-[88px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6] sm:w-[100px]"
-              >
-                <Brand src="/logos/platforms/chrome.svg" alt="Chrome" />
-                <span className="text-[12px] font-medium sm:text-[13px]">Chrome</span>
-                <span className="text-[10px] text-[#8a8a8a]">Web Store</span>
-              </a>
+              <Soon label="Chrome" src="/logos/platforms/chrome.svg" />
               <Soon label="Brave" src="/logos/platforms/brave.png" />
               <Soon label="Edge" src="/logos/platforms/edge.svg" />
             </div>
