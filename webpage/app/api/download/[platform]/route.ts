@@ -11,11 +11,11 @@ const FILES = {
   linux: "Ketra-linux.AppImage",
 } as const;
 
-/** Single-file apps on the release. Linux/macOS ship from CI; Windows is packed locally. */
+/** Single-file apps on the release. Windows portable exe, Linux AppImage, macOS DMG. */
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
-  mac: false,
+  mac: true,
   windows: true,
-  linux: false,
+  linux: true,
 };
 
 type Platform = keyof typeof FILES;
