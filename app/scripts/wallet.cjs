@@ -117,6 +117,10 @@ function summarize(owner, steps, receipt) {
   }
 
   own.forEach((log, index) => {
+    if (same(log.address, owner) && log.topics[0] === RECEIVED && !same(topicAddress(log.topics[1]), WETH)) {
+      add("ETH", BigInt(log.data));
+      return;
+    }
     if (log.topics[0] !== TRANSFER || log.topics.length !== 3 || log.data.length < 66) return;
     const from = topicAddress(log.topics[1]);
     const to = topicAddress(log.topics[2]);

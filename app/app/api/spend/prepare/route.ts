@@ -4,10 +4,10 @@ import { allow } from "@/lib/limit";
 import { afterFee, defiFee, findRoute } from "@/lib/quote";
 import { runScript } from "@/lib/relay";
 import type { PreparedSpend, SpendKind, SpendSummary } from "@/lib/spend";
-import { tokenById, USDG_ADDRESS } from "@/lib/tokens";
+import { tokenById, USDG_ADDRESS, WETH_ADDRESS } from "@/lib/tokens";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const routeNames = { v4: "Uniswap v4", v3: "Uniswap v3", v2: "Uniswap v2" } as const;
+const routeNames = { v4: "Uniswap v4", v3: "Uniswap v3", v2: "Uniswap v2", curve: "Pons bonding curve" } as const;
 
 type Body = {
   account?: string;
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     if (!pay || !receive || pay.id === receive.id) return bad("Pick two different tokens.");
     const amount = parseAmount(amountText, pay.decimals);
     if (!amount) return bad("Enter an amount.");
-    const route = await findRoute(pay, receive, amount);
+    const route = await findRoute(pay, receive, amount, body.account);
     if (!route) return bad("There is no route for this swap right now.");
     if (route === "wrap") {
       const wrap = pay.id === "ETH";
@@ -69,19 +69,31 @@ export async function POST(request: Request) {
       };
     } else {
       const minimum = (route.amountOut * 99n) / 100n;
-      plan = {
-        kind: "swap",
-        version: route.version,
-        tokenIn: route.tokenIn,
-        tokenOut: route.tokenOut,
-        amountIn: amount.toString(),
-        amountOutMin: minimum.toString(),
-        fee: route.fee,
-        tick: route.tick,
-        path: route.path,
-        payEth: pay.id === "ETH",
-        receiveEth: receive.id === "ETH",
-      };
+      plan =
+        route.version === "curve"
+          ? {
+              kind: "curve",
+              side: route.side,
+              curve: route.curve,
+              tokenIn: route.tokenIn,
+              tokenOut: route.tokenOut,
+              amountIn: amount.toString(),
+              amountOutMin: minimum.toString(),
+            }
+          : {
+              kind: "swap",
+              version: route.version,
+              tokenIn: route.tokenIn,
+              tokenOut: route.tokenOut,
+              amountIn: amount.toString(),
+              amountOutMin: minimum.toString(),
+              fee: route.fee,
+              tick: route.tick,
+              hooks: route.hooks,
+              path: route.path,
+              payEth: pay.id === "ETH" && route.tokenIn.toLowerCase() === WETH_ADDRESS.toLowerCase(),
+              receiveEth: receive.id === "ETH" && route.tokenOut.toLowerCase() === WETH_ADDRESS.toLowerCase(),
+            };
       summary = {
         kind: "swap",
         title: "Swap",
@@ -93,7 +105,7 @@ export async function POST(request: Request) {
           minimum: formatAmount(minimum, receive.decimals),
         },
         to: { label: "Route", address: undefined },
-        fee: { amount: formatAmount(defiFee(amount), pay.decimals), symbol: pay.symbol, rate: "0.5%" },
+        fee: { amount: formatAmount(route.charged, pay.decimals), symbol: pay.symbol, rate: "0.5%" },
         route: `${routeNames[route.version]} · 1% max slippage`,
       };
     }

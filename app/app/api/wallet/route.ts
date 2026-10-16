@@ -1,11 +1,11 @@
 import { formatAmount } from "@/lib/amount";
-import { ethCall, markets, tokenInfo } from "@/lib/chain";
+import { tokenInfo } from "@/lib/chain";
 import { allow } from "@/lib/limit";
+import { ethUsdPrice, valuesOf } from "@/lib/price";
 import { runScript } from "@/lib/relay";
-import { isAddress, tokenById, USDG_ADDRESS, WETH_ADDRESS, type Token } from "@/lib/tokens";
+import { isAddress, tokenById, type Token } from "@/lib/tokens";
 import type { ActivityItem, ActivityKind, WalletAsset, WalletOverview } from "@/lib/wallet-types";
 
-const STEAKHOUSE_VAULT = "0xbeeff033f34c046626b8d0a041844c5d1a5409dd";
 const CACHE_TTL = 15 * 1000;
 
 type Raw = {
@@ -17,15 +17,6 @@ type Raw = {
 
 const created = new Map<string, number>();
 const cache = new Map<string, { at: number; overview: WalletOverview }>();
-
-function units(raw: bigint, decimals: number) {
-  return Number(formatAmount(raw, decimals));
-}
-
-async function vaultUsd(shares: bigint) {
-  const data = await ethCall(STEAKHOUSE_VAULT, `0x07a2d13a${shares.toString(16).padStart(64, "0")}`);
-  return data ? units(BigInt(data.slice(0, 66)), 6) : null;
-}
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { account?: string; tokens?: unknown; fresh?: boolean } | null;
@@ -49,29 +40,26 @@ export async function POST(request: Request) {
   raw.balances.forEach((item) => addresses.add(item.token.toLowerCase()));
   raw.activity.forEach((item) => item.legs.forEach((leg) => leg.token !== "ETH" && addresses.add(leg.token.toLowerCase())));
   const infos = new Map<string, Token | null>(await Promise.all([...addresses].map(async (address) => [address, await tokenInfo(address)] as const)));
-  const prices = await markets([WETH_ADDRESS, USDG_ADDRESS, ...addresses]);
   const eth = tokenById("ETH")!;
-  const priceOf = (token: Token) => prices.get((token.address ?? WETH_ADDRESS).toLowerCase())?.priceUsd ?? null;
   const tokenFor = (id: string) => (id === "ETH" ? eth : (infos.get(id.toLowerCase()) ?? null));
 
   const ethRaw = BigInt(raw.eth);
-  const ethPrice = priceOf(eth);
-  const assets: WalletAsset[] = [{ token: eth, balance: formatAmount(ethRaw, 18), usd: ethPrice == null ? null : units(ethRaw, 18) * ethPrice }];
   const imported = new Set(extra.map((item) => item.toLowerCase()));
+  const pending: { token: Token; amount: bigint }[] = [{ token: eth, amount: ethRaw }];
   for (const item of raw.balances) {
     const token = tokenFor(item.token);
     if (!token || item.balance == null) continue;
     const amount = BigInt(item.balance);
     if (amount === 0n && !imported.has(item.token.toLowerCase())) continue;
-    let usd: number | null = null;
-    if (item.token.toLowerCase() === STEAKHOUSE_VAULT) usd = amount === 0n ? 0 : await vaultUsd(amount);
-    else {
-      const price = priceOf(token);
-      usd = price == null ? null : units(amount, token.decimals) * price;
-    }
-    assets.push({ token, balance: formatAmount(amount, token.decimals), usd });
+    pending.push({ token, amount });
   }
-  assets.sort((a, b) => (a.token.id === "ETH" ? -1 : b.token.id === "ETH" ? 1 : (b.usd ?? -1) - (a.usd ?? -1)));
+
+  const [ethUsd, valued] = await Promise.all([ethUsdPrice(), valuesOf(pending)]);
+  const assets: WalletAsset[] = pending.map(({ token, amount }) => {
+    const value = valued.get(token.id) ?? { eth: null, usd: null };
+    return { token, balance: formatAmount(amount, token.decimals), eth: value.eth, usd: value.usd };
+  });
+  assets.sort((a, b) => (a.token.id === "ETH" ? -1 : b.token.id === "ETH" ? 1 : (b.usd ?? b.eth ?? -1) - (a.usd ?? a.eth ?? -1)));
 
   const activity: ActivityItem[] = raw.activity.map((item) => ({
     hash: item.hash,
@@ -84,10 +72,13 @@ export async function POST(request: Request) {
     }),
   }));
 
-  const valued = assets.filter((asset) => asset.usd != null);
+  const withEth = assets.filter((asset) => asset.eth != null);
+  const withUsd = assets.filter((asset) => asset.usd != null);
   const overview: WalletOverview = {
     account,
-    totalUsd: valued.length ? valued.reduce((sum, asset) => sum + (asset.usd ?? 0), 0) : null,
+    totalEth: withEth.length ? withEth.reduce((sum, asset) => sum + (asset.eth ?? 0), 0) : null,
+    totalUsd: withUsd.length ? withUsd.reduce((sum, asset) => sum + (asset.usd ?? 0), 0) : null,
+    ethUsd,
     assets,
     activity,
     updated: Date.now(),

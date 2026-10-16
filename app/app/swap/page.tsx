@@ -14,12 +14,13 @@ const routes: Record<NonNullable<Quote["version"]>, string> = {
   v4: "Uniswap v4",
   v3: "Uniswap v3",
   v2: "Uniswap v2",
+  curve: "Pons bonding curve",
   wrap: "WETH contract",
 };
 
 export default function Swap() {
   const router = useRouter();
-  const { data } = useWallet();
+  const { data, account } = useWallet();
   const [payToken, setPayToken] = useState<Token>(tokens[0]);
   const [receiveToken, setReceiveToken] = useState<Token>(tokens[2]);
   const [picking, setPicking] = useState<"pay" | "receive" | null>(null);
@@ -44,7 +45,7 @@ export default function Swap() {
       fetch("/api/quote", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pay: payId, receive: receiveId, amount: pay }),
+        body: JSON.stringify({ pay: payId, receive: receiveId, amount: pay, account }),
         signal: controller.signal,
       })
         .then((response) => response.json())
@@ -57,9 +58,12 @@ export default function Swap() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [valid, request, pay, payId, receiveId]);
+  }, [valid, request, pay, payId, receiveId, account]);
 
   function flip() {
+    // You can only pay with a held token, so flip only when the receive side is also held.
+    const receiveBalance = balanceOf(data, receiveToken);
+    if (!receiveBalance || receiveBalance === "0") return;
     setPayToken(receiveToken);
     setReceiveToken(payToken);
   }
@@ -69,7 +73,10 @@ export default function Swap() {
       if (token.id === receiveToken.id) setReceiveToken(payToken);
       setPayToken(token);
     } else if (picking === "receive") {
-      if (token.id === payToken.id) setPayToken(receiveToken);
+      if (token.id === payToken.id) {
+        const held = data?.assets.find((asset) => asset.balance !== "0" && asset.token.id !== token.id);
+        if (held) setPayToken(held.token);
+      }
       setReceiveToken(token);
     }
     setPicking(null);
@@ -97,12 +104,21 @@ export default function Swap() {
             : "Review"
           : "No route";
 
+  useEffect(() => {
+    if (!data) return;
+    if (balanceOf(data, payToken) !== "0") return;
+    const held = data.assets.find((asset) => asset.balance !== "0" && asset.token.id !== receiveToken.id);
+    if (held) setPayToken(held.token);
+  }, [data, payToken, receiveToken]);
+
   if (picking) {
     return (
       <div className="mx-auto max-w-[640px]">
         <TokenPicker
           tokens={tokens}
           selected={picking === "pay" ? payToken.id : receiveToken.id}
+          heldOnly={picking === "pay"}
+          searchable={picking === "receive"}
           onClose={() => setPicking(null)}
           onSelect={choose}
         />
@@ -113,7 +129,9 @@ export default function Swap() {
   return (
     <div className="mx-auto max-w-[640px]">
       <h1 className="text-[2rem] font-medium tracking-[-0.03em]">Swap</h1>
-      <p className="mt-2 text-[15px] text-[#8a8a8a]">Any token on Robinhood Chain. Search by name or paste a contract.</p>
+      <p className="mt-2 text-[15px] text-[#8a8a8a]">
+        Pay with what you hold. Receive anything on Robinhood — typing searches automatically.
+      </p>
 
       <form onSubmit={review} className="mt-6 glass rounded-[28px] p-4 sm:p-5">
         <p className="text-[16px] font-medium">{wrap ? (payToken.id === "ETH" ? "Wrap" : "Unwrap") : "Swap"}</p>

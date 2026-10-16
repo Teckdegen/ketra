@@ -47,6 +47,8 @@ const mainnet = {
     irm: getAddress("0x2BD3d5965B26B51814AC95127B2b80dD6CcC0fa1"),
     lltv: 625000000000000000n,
   },
+  ponsFactory: getAddress("0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e"),
+  ponsMemeHook: getAddress("0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044"),
   v4WethUsdg: {
     currency0: getAddress("0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"),
     currency1: getAddress("0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"),
@@ -64,8 +66,8 @@ function approve(token, spender, amount) {
   return [ACTION_APPROVE, coder.encode(["address", "address", "uint256"], [getAddress(token), getAddress(spender), amount])];
 }
 
-function call(target, data) {
-  return [ACTION_CALL, coder.encode(["address", "uint256", "bytes"], [getAddress(target), 0, data])];
+function call(target, data, value = 0n) {
+  return [ACTION_CALL, coder.encode(["address", "uint256", "bytes"], [getAddress(target), value, data])];
 }
 
 function v3SwapStep({ router, tokenIn, tokenOut, fee, amountIn, amountOutMin, sqrtPriceLimitX96, deadline }) {
@@ -109,6 +111,9 @@ const LIGHTER_WITHDRAW = "0xd20191bd";
 const LIGHTER_CLAIM = "0x2f25807e";
 const MORPHO_WITHDRAW = "0x5c2bea49";
 const MORPHO_WITHDRAW_COLLATERAL = "0x8720316d";
+const PONS_CURVE_BUY = "0x59a87bc1";
+const PONS_CURVE_SELL = "0xd04c6983";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 function v3Router02Steps({ router, tokenIn, tokenOut, fee, account, amountIn, amountOutMin, sqrtPriceLimitX96 }) {
   const args = coder.encode(
@@ -143,6 +148,9 @@ function v4SwapSteps({ router, permit2, pool, zeroForOne, amountIn, amountOutMin
   const routerAddress = getAddress(router);
   const permit2Address = getAddress(permit2);
   const executeArgs = coder.encode(["bytes", "bytes[]", "uint256"], ["0x10", [v4SwapInput({ pool, zeroForOne, amountIn, amountOutMin })], deadline]);
+  if (token === ZERO_ADDRESS) {
+    return [allow(routerAddress), call(routerAddress, UNIVERSAL_ROUTER_EXECUTE + executeArgs.slice(2), BigInt(amountIn))];
+  }
   const permitArgs = coder.encode(["address", "address", "uint160", "uint48"], [token, routerAddress, amountIn, deadline]);
   const clearPermit = coder.encode(["address", "address", "uint160", "uint48"], [token, routerAddress, 0, 0]);
   return [
@@ -248,6 +256,27 @@ function lighterClaimSteps({ lighter, asset, amount, account, assetIndex }) {
   });
 }
 
+/** The most a measured call can move so that it plus its 0.5% fee, pushed afterwards, fits in amount. */
+function measuredNet(amount) {
+  return (BigInt(amount) * 10000n) / (10000n + DEFI_FEE_BPS);
+}
+
+// The account takes 0.5% of the ETH value before the call, and the curve requires quoteIn to equal the value it receives.
+// Token fees are pushed after the call from what is left, so the curve only gets the measured net.
+function ponsCurveBuySteps({ curve, pairToken, amount, minTokensOut, account }) {
+  const native = !pairToken || getAddress(pairToken) === ZERO_ADDRESS;
+  const quoteIn = native ? BigInt(amount) - defiFee(amount) : measuredNet(amount);
+  const data = PONS_CURVE_BUY + coder.encode(["uint256", "uint256", "address"], [quoteIn, minTokensOut, getAddress(account)]).slice(2);
+  if (native) return [allow(curve), call(curve, data, BigInt(amount))];
+  return allowAndCall({ target: curve, token: pairToken, amount: quoteIn, data });
+}
+
+function ponsCurveSellSteps({ curve, token, amount, minQuoteOut, account }) {
+  const tokensIn = measuredNet(amount);
+  const data = PONS_CURVE_SELL + coder.encode(["uint256", "uint256", "address"], [tokensIn, minQuoteOut, getAddress(account)]).slice(2);
+  return allowAndCall({ target: curve, token, amount: tokensIn, data });
+}
+
 function allowAndCall({ target, token, amount, data }) {
   const steps = [allow(target)];
   if (token) steps.push(approve(token, target, amount));
@@ -282,5 +311,8 @@ module.exports = {
   lighterDepositSteps,
   lighterWithdrawSteps,
   lighterClaimSteps,
+  measuredNet,
+  ponsCurveBuySteps,
+  ponsCurveSellSteps,
   allowAndCall,
 };

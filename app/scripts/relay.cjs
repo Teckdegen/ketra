@@ -59,6 +59,17 @@ function build(plan, account) {
   if (plan.kind === "steakhouse") {
     return robinhood.steakhouseDepositSteps({ vault: robinhood.mainnet.steakUsdg, asset: robinhood.mainnet.usdg, assets: BigInt(plan.amount), account });
   }
+  if (plan.kind === "curve") {
+    const amount = BigInt(plan.amountIn);
+    const amountOutMin = BigInt(plan.amountOutMin);
+    if (plan.side === "buy") {
+      return robinhood.ponsCurveBuySteps({ curve: plan.curve, pairToken: plan.tokenIn, amount, minTokensOut: amountOutMin, account });
+    }
+    if (plan.side === "sell") {
+      return robinhood.ponsCurveSellSteps({ curve: plan.curve, token: plan.tokenIn, amount, minQuoteOut: amountOutMin, account });
+    }
+    throw new Error("There is no route for this swap.");
+  }
   if (plan.kind === "swap") {
     const amountIn = BigInt(plan.amountIn);
     const amountOutMin = BigInt(plan.amountOutMin);
@@ -75,7 +86,7 @@ function build(plan, account) {
         ...robinhood.v4SwapSteps({
           router: robinhood.mainnet.universalRouter,
           permit2: robinhood.mainnet.permit2,
-          pool: { currency0, currency1, fee: plan.fee, tickSpacing: plan.tick, hooks: ZeroAddress },
+          pool: { currency0, currency1, fee: plan.fee, tickSpacing: plan.tick, hooks: plan.hooks ? getAddress(plan.hooks) : ZeroAddress },
           zeroForOne: tokenIn === currency0,
           amountIn,
           amountOutMin,

@@ -6,7 +6,7 @@ import { ml_dsa44 } from "@noble/post-quantum/ml-dsa.js";
 import { bytesToHex, hexToBytes, phraseFromSeed, seedFromPhrase } from "@/lib/seed";
 import { addWallet, changePassword, clearWallets, hasLock, lockApp, protectWallets, readWallets, rememberAddress, removeWallet, setActive, unlock, type SavedWallet } from "@/lib/wallets";
 import { WalletAvatar } from "../wallet-avatar";
-import { displayAmount } from "@/lib/amount";
+import { formatValue, setBalanceUnit, useBalanceUnit, type BalanceUnit } from "@/lib/display";
 import { useWallet } from "@/lib/use-wallet";
 
 function SecurityPanel() {
@@ -132,12 +132,12 @@ function Chevron() {
 export default function Settings() {
   const [wallets, setWallets] = useState<SavedWallet[]>([]);
   const { data: overview } = useWallet();
-  const ethBalance = overview?.assets.find((asset) => asset.token.id === "ETH")?.balance;
+  const unit = useBalanceUnit();
   const [activeId, setActiveId] = useState("");
   const [ready, setReady] = useState(false);
   const [seed, setSeed] = useState("");
   const [error, setError] = useState("");
-  const [open, setOpen] = useState<"wallets" | "export" | "privacy" | "help" | null>("wallets");
+  const [open, setOpen] = useState<"wallets" | "export" | "privacy" | "help" | "display" | null>("wallets");
   const [revealed, setRevealed] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmForget, setConfirmForget] = useState(false);
@@ -156,10 +156,14 @@ export default function Settings() {
   const activeIndex = wallets.findIndex((wallet) => wallet.id === activeId);
   const active = activeIndex >= 0 ? wallets[activeIndex] : null;
 
-  function toggle(panel: "wallets" | "export" | "privacy" | "help") {
+  function toggle(panel: "wallets" | "export" | "privacy" | "help" | "display") {
     setError("");
     setRevealed("");
     setOpen((current) => (current === panel ? null : panel));
+  }
+
+  function chooseUnit(next: BalanceUnit) {
+    setBalanceUnit(next);
   }
 
   function switchTo(id: string) {
@@ -293,7 +297,9 @@ export default function Settings() {
       <div className="mt-3 glass grid grid-cols-2 rounded-[28px] px-2 py-4">
         <div className="px-4">
           <p className="text-[13px] text-[#8a8a8a]">Balance</p>
-          <p className="mt-1 truncate text-[1.6rem] font-medium tracking-[-0.03em]">{ethBalance == null ? "…" : `${displayAmount(ethBalance)} ETH`}</p>
+          <p className="mt-1 truncate text-[1.6rem] font-medium tracking-[-0.03em]">
+            {overview ? formatValue(overview.totalUsd, overview.totalEth, unit) : "…"}
+          </p>
         </div>
         <div className="border-l border-white/70 px-4">
           <p className="text-[13px] text-[#8a8a8a]">On this device</p>
@@ -468,7 +474,43 @@ export default function Settings() {
 
       <h2 className="mt-8 text-[1.35rem] font-medium tracking-[-0.03em]">Preferences</h2>
       <div className="mt-3 glass rounded-[28px] px-4">
-        <button type="button" onClick={() => toggle("privacy")} className="flex w-full items-center gap-3 py-4 text-left">
+        <button type="button" onClick={() => toggle("display")} className="flex w-full items-center gap-3 py-4 text-left">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <circle cx="12" cy="12" r="8" />
+            <path d="M12 8 V12 L15 14" />
+          </svg>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px]">Balance display</span>
+            <span className="block text-[13px] text-[#8a8a8a]">{unit === "eth" ? "Shown in ETH" : "Shown in USD"}</span>
+          </span>
+          <Chevron />
+        </button>
+        {open === "display" ? (
+          <div className="border-t border-white/60 pb-4">
+            <p className="pt-3 text-[13px] leading-5 text-[#8a8a8a]">
+              Tokens are quoted to ETH onchain, then ETH is priced in USD through GeckoTerminal. Pick which one the portfolio shows first.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: "usd", label: "USD", hint: "Dollar value" },
+                  { id: "eth", label: "ETH", hint: "Ether value" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => chooseUnit(option.id)}
+                  className={`rounded-2xl px-4 py-3 text-left ${unit === option.id ? "bg-black text-white" : "glass-field"}`}
+                >
+                  <span className="block text-[15px] font-medium">{option.label}</span>
+                  <span className={`block text-[12px] ${unit === option.id ? "text-white/70" : "text-[#8a8a8a]"}`}>{option.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <button type="button" onClick={() => toggle("privacy")} className="flex w-full items-center gap-3 border-t border-white/60 py-4 text-left">
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
             <path d="M12 3 L20 6.5 V12c0 4.2-3 7.2-8 8.8C7 19.2 4 16.2 4 12V6.5L12 3Z" />
           </svg>

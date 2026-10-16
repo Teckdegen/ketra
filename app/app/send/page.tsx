@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PortionButtons } from "../portion";
 import { TokenPicker, TokenPill } from "../token-modal";
 import { displayAmount, parseAmount } from "@/lib/amount";
@@ -16,6 +16,13 @@ export default function Send() {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [to, setTo] = useState("");
+
+  useEffect(() => {
+    if (!data) return;
+    const held = data.assets.find((asset) => asset.balance !== "0");
+    if (!held) return;
+    if (balanceOf(data, token) === "0") setToken(held.token);
+  }, [data, token]);
 
   async function paste() {
     try {
@@ -47,6 +54,8 @@ export default function Send() {
         <TokenPicker
           tokens={tokens}
           selected={token.id}
+          heldOnly
+          searchable={false}
           onClose={() => setOpen(false)}
           onSelect={(next) => {
             setToken(next);

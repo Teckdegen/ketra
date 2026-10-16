@@ -27,6 +27,7 @@ function factoryBlock() {
 }
 
 function envValue(name) {
+  if (process.env[name]) return process.env[name].trim();
   const file = path.join(PROTOCOL, ".env");
   if (!fs.existsSync(file)) return "";
   const line = fs.readFileSync(file, "utf8").split(/\r?\n/).find((row) => row.startsWith(`${name}=`));

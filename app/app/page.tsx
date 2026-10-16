@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { TokenLogo } from "./token-modal";
 import { displayAmount } from "@/lib/amount";
-import { money, shortAddress } from "@/lib/format";
+import { formatValue, formatValueHint, useBalanceUnit } from "@/lib/display";
+import { shortAddress } from "@/lib/format";
 import { refreshWallet, useWallet } from "@/lib/use-wallet";
 import type { ActivityItem, ActivityKind } from "@/lib/wallet-types";
 
@@ -95,9 +96,9 @@ function Row({ item }: { item: ActivityItem }) {
 export default function Home() {
   const [tab, setTab] = useState<"tokens" | "activity">("tokens");
   const { data, loading, error } = useWallet();
+  const unit = useBalanceUnit();
   const assets = data?.assets ?? [];
   const funded = assets.some((asset) => asset.balance !== "0");
-  const eth = assets.find((asset) => asset.token.id === "ETH");
 
   return (
     <div>
@@ -120,9 +121,11 @@ export default function Home() {
         {data ? (
           <>
             <p className="mt-3 text-[2.6rem] leading-none font-medium tracking-[-0.04em]">
-              {data.totalUsd != null ? money(data.totalUsd) : `${displayAmount(eth?.balance ?? "0")} ETH`}
+              {formatValue(data.totalUsd, data.totalEth, unit)}
             </p>
-            {data.totalUsd != null && eth ? <p className="mt-2 text-[14px] text-[#8a8a8a]">{displayAmount(eth.balance)} ETH</p> : null}
+            {formatValueHint(data.totalUsd, data.totalEth, unit) ? (
+              <p className="mt-2 text-[14px] text-[#8a8a8a]">{formatValueHint(data.totalUsd, data.totalEth, unit)}</p>
+            ) : null}
           </>
         ) : (
           <span className="sign-shimmer mt-3 block h-10 w-44 rounded-2xl" />
@@ -162,7 +165,7 @@ export default function Home() {
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="block text-[15px] font-medium">{displayAmount(asset.balance)}</span>
-                    <span className="block text-[13px] text-[#8a8a8a]">{asset.usd != null ? money(asset.usd) : "No price"}</span>
+                    <span className="block text-[13px] text-[#8a8a8a]">{formatValue(asset.usd, asset.eth, unit)}</span>
                   </span>
                 </div>
               ))}

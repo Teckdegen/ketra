@@ -258,7 +258,7 @@ contract KetraAccount {
             else if (sel == bytes4(0xa99aad89)) data = _feeMorpho(data);
             else if (sel == bytes4(0x6e553f65)) data = _feeDeposit(target, data);
             else if (sel == bytes4(0x8a857083)) data = _feeLighter(steps, index, target, data);
-            else if (sel == bytes4(0x3593564c)) data = _feeUniversal(data);
+            else if (sel == bytes4(0x3593564c)) data = _feeUniversal(data, value);
             else if (sel == bytes4(0xb460af94) || sel == bytes4(0xba087652)) {
                 _feeVaultExit(target, value, data);
                 return;
@@ -431,13 +431,15 @@ contract KetraAccount {
     }
 
     /// @dev The v4 swap built by js/robinhood.js. One command 0x10, one input, actions swap/settle/take.
-    function _feeUniversal(bytes memory data) internal returns (bytes memory) {
+    ///      Native ETH input is paid as the call value, which must equal the amount and is cut by the caller.
+    function _feeUniversal(bytes memory data, uint256 value) internal returns (bytes memory) {
         if (data.length != 1124 || _load(data, 4) != 0x60 || _load(data, 100) != 1) revert BadAction();
         if (_load(data, 132) != (uint256(uint8(0x10)) << 248)) revert BadAction();
         address token = address(uint160(_load(data, 964)));
         uint256 amount = _load(data, 772);
-        if (token == address(0) || amount == 0 || amount != _load(data, 996)) revert BadAction();
-        uint256 net = _takeToken(token, amount, DEFI_FEE_BPS);
+        if (amount == 0 || amount != _load(data, 996)) revert BadAction();
+        if (token == address(0) ? value != amount : value != 0) revert BadAction();
+        uint256 net = token == address(0) ? amount - _cut(amount, DEFI_FEE_BPS) : _takeToken(token, amount, DEFI_FEE_BPS);
         _store(data, 772, net);
         _store(data, 996, net);
         return data;

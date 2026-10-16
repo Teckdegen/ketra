@@ -138,18 +138,87 @@ export async function resolveToken(id: string) {
   return tokenById(id) ?? (await tokenInfo(id));
 }
 
+const GECKO = "https://api.geckoterminal.com/api/v2";
+
+function geckoAddress(id: string | undefined) {
+  if (!id) return null;
+  const address = id.includes("_") ? id.slice(id.indexOf("_") + 1) : id;
+  return isAddress(address) && !/^0x0{40}$/i.test(address) ? address.toLowerCase() : null;
+}
+
+/** Trending base tokens on Robinhood from GeckoTerminal. */
+async function geckoTrending(): Promise<string[]> {
+  try {
+    const response = await fetch(`${GECKO}/networks/robinhood/trending_pools?page=1`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return [];
+    const body = (await response.json()) as {
+      data?: { relationships?: { base_token?: { data?: { id?: string } } } }[];
+    };
+    const addresses: string[] = [];
+    for (const pool of body.data ?? []) {
+      const address = geckoAddress(pool.relationships?.base_token?.data?.id);
+      if (address && !addresses.includes(address)) addresses.push(address);
+      if (addresses.length >= 20) break;
+    }
+    return addresses;
+  } catch {
+    return [];
+  }
+}
+
+/** Name search on GeckoTerminal pools for Robinhood. */
+async function geckoSearch(query: string): Promise<Map<string, number>> {
+  const ranked = new Map<string, number>();
+  try {
+    const response = await fetch(`${GECKO}/search/pools?query=${encodeURIComponent(query)}&network=robinhood`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return ranked;
+    const body = (await response.json()) as {
+      data?: {
+        attributes?: { volume_usd?: { h24?: string }; name?: string };
+        relationships?: { base_token?: { data?: { id?: string } }; quote_token?: { data?: { id?: string } } };
+      }[];
+    };
+    for (const pool of body.data ?? []) {
+      const volume = Number(pool.attributes?.volume_usd?.h24 ?? 0);
+      for (const side of [pool.relationships?.base_token?.data?.id, pool.relationships?.quote_token?.data?.id]) {
+        const address = geckoAddress(side);
+        if (!address) continue;
+        ranked.set(address, (ranked.get(address) ?? 0) + (Number.isFinite(volume) ? volume : 0));
+      }
+    }
+  } catch {}
+  return ranked;
+}
+
+/**
+ * Token search for the swap "receive" picker.
+ * Empty query: built-ins + GeckoTerminal trending.
+ * Contract: on-chain metadata (works for any CA, including Pons).
+ * Name: DexScreener + GeckoTerminal, ranked by 24h volume.
+ */
 export async function searchTokens(query: string): Promise<Token[]> {
   const needle = query.trim();
-  if (!needle) return tokens;
+  if (!needle) {
+    const trending = await geckoTrending();
+    const found = (await Promise.all(trending.map(tokenInfo))).filter((token): token is Token => Boolean(token));
+    const seen = new Set(tokens.map((token) => token.id));
+    return [...tokens, ...found.filter((token) => !seen.has(token.id) && !tokenByAddress(token.id))];
+  }
   if (isAddress(needle)) {
     const token = await tokenInfo(needle);
     return token ? [token] : [];
   }
   const lower = needle.toLowerCase();
   const local = tokens.filter((token) => token.symbol.toLowerCase().includes(lower) || token.name.toLowerCase().includes(lower));
-  const pairs = await dexPairs(`/latest/dex/search?q=${encodeURIComponent(needle)}`);
+  const [pairs, gecko] = await Promise.all([dexPairs(`/latest/dex/search?q=${encodeURIComponent(needle)}`), geckoSearch(needle)]);
   const knownSymbols = new Set(tokens.map((token) => token.symbol.toLowerCase()));
-  const ranked = new Map<string, number>();
+  const ranked = new Map<string, number>(gecko);
   for (const pair of pairs) {
     for (const side of [pair.baseToken, pair.quoteToken]) {
       if (!side.symbol.toLowerCase().includes(lower) && !side.name.toLowerCase().includes(lower)) continue;
@@ -160,9 +229,10 @@ export async function searchTokens(query: string): Promise<Token[]> {
     }
   }
   const top = [...ranked]
-    .filter(([, volume]) => volume >= MIN_SEARCH_VOLUME)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
+    // DexScreener-only hits need real volume (clone filter). GeckoTerminal hits are kept even when quiet.
+    .filter(([address, volume]) => gecko.has(address) || volume >= MIN_SEARCH_VOLUME)
+    .slice(0, 16)
     .map(([address]) => address);
   const found = (await Promise.all(top.map(tokenInfo))).filter((token): token is Token => Boolean(token));
   const seen = new Set(local.map((token) => token.id));
