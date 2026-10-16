@@ -11,7 +11,6 @@ import {
   hasDeviceAccount,
   protectWallets,
   rememberAddress,
-  removeWallet,
   unlock,
 } from "@/lib/wallets";
 import { SeedPhraseEntry, SeedPhraseView } from "./seed-phrase";
@@ -106,18 +105,17 @@ export default function Welcome() {
       setError(parsed.error);
       return;
     }
-    const wallet = await addWallet(parsed.seed, "", parsed.phrase);
     setBusy("Creating the account");
     let address: string;
     try {
       address = await addressFor(parsed.seed);
     } catch (error) {
-      removeWallet(wallet.id);
       clearOrphanLock();
       setBusy("");
       setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
       return;
     }
+    const wallet = await addWallet(parsed.seed, address, parsed.phrase);
     rememberAddress(wallet.id, address);
     if (!existing) {
       const message = await protectWallets(password);

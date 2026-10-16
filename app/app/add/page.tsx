@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bytesToHex, hexToBytes, newSeedPhrase, seedFromPhrase } from "@/lib/seed";
-import { addWallet, clearOrphanLock, hasDeviceAccount, protectWallets, rememberAddress, removeWallet, unlock } from "@/lib/wallets";
+import { addWallet, clearOrphanLock, hasDeviceAccount, protectWallets, rememberAddress, unlock } from "@/lib/wallets";
 import { SeedPhraseEntry, SeedPhraseView } from "../seed-phrase";
 
 async function addressFor(seedHex: string) {
@@ -103,18 +103,17 @@ export default function AddWallet() {
       setError(parsed.error);
       return;
     }
-    const wallet = await addWallet(parsed.seed, "", parsed.phrase);
     setBusy("Creating the account");
     let address: string;
     try {
       address = await addressFor(parsed.seed);
     } catch (error) {
-      removeWallet(wallet.id);
       clearOrphanLock();
       setBusy("");
       setError(error instanceof Error ? error.message : "The account was not created, so this wallet was not saved.");
       return;
     }
+    const wallet = await addWallet(parsed.seed, address, parsed.phrase);
     rememberAddress(wallet.id, address);
     if (!existing) {
       const message = await protectWallets(password);
