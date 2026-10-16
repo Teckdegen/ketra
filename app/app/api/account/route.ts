@@ -20,8 +20,16 @@ export async function POST(request: Request) {
     return Response.json({ address: parsed.address });
   } catch (error) {
     const stderr = error instanceof Error && "stderr" in error ? String((error as { stderr?: unknown }).stderr ?? "") : "";
-    const message = stderr.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-    const safe = message && message.length < 180 && !/0x[0-9a-fA-F]{64}/i.test(message) ? message : "The account was not created.";
+    const message = stderr.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || (error instanceof Error ? error.message : "");
+    const safe =
+      message &&
+      message.length < 180 &&
+      !/0x[0-9a-fA-F]{64}/i.test(message) &&
+      !/node:internal|MODULE_NOT_FOUND|Cannot find module/i.test(message)
+        ? message
+        : /gas payer|insufficient funds/i.test(message)
+          ? message
+          : "The account was not created.";
     return Response.json({ address: null, error: safe }, { status: 502 });
   }
 }

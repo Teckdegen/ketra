@@ -1,0 +1,8 @@
+{
+  "chainId": 4663,
+  "helper": "0x31cC22Cc0e9Bf60293a04cA69743001bd2A53826",
+  "verifier": "0x91c02D5Ac2F0616cE87D63b5418f8567AE07362a",
+  "factory": "0x72FEE9b929eCdCd7517888ce3305614B4722808c",
+  "block": 90009810,
+  "feeRecipient": "0xc32E22EAE70aDe70bC5E95Da9f39766A1d24A971"
+}

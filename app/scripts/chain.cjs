@@ -1,8 +1,20 @@
 const fs = require("fs");
 const path = require("path");
 
-const PROTOCOL = path.join(__dirname, "..", "..", "protocol");
-const ethers = require(path.join(PROTOCOL, "node_modules", "ethers"));
+// Prefer the vendored copy shipped with the app (Vercel). Fall back to the monorepo protocol folder locally.
+const vendored = path.join(__dirname, "..", "vendor", "protocol");
+const monorepo = path.join(__dirname, "..", "..", "protocol");
+const PROTOCOL = fs.existsSync(path.join(vendored, "js", "prepare.js")) ? vendored : monorepo;
+
+function loadEthers() {
+  try {
+    return require("ethers");
+  } catch {
+    return require(path.join(monorepo, "node_modules", "ethers"));
+  }
+}
+
+const ethers = loadEthers();
 
 const RPC = process.env.KETRA_RPC || "https://rpc.mainnet.chain.robinhood.com";
 const CHAIN_ID = Number(process.env.KETRA_CHAIN_ID || 4663);
@@ -28,7 +40,7 @@ function factoryBlock() {
 
 function envValue(name) {
   if (process.env[name]) return process.env[name].trim();
-  const file = path.join(PROTOCOL, ".env");
+  const file = path.join(monorepo, ".env");
   if (!fs.existsSync(file)) return "";
   const line = fs.readFileSync(file, "utf8").split(/\r?\n/).find((row) => row.startsWith(`${name}=`));
   return line ? line.slice(name.length + 1).trim().replace(/^['"]|['"]$/g, "") : "";
@@ -52,6 +64,9 @@ function deployed(code) {
 function safeError(error, fallback) {
   const text = String(error?.shortMessage || error?.reason || error?.message || fallback);
   if (/insufficient funds/i.test(text)) return "The gas payer needs more ETH on Robinhood Chain.";
+  if (/Cannot find module|MODULE_NOT_FOUND|internal\/modules\/cjs\/loader/i.test(text)) {
+    return "The wallet server is missing a dependency. Redeploy the app.";
+  }
   return text.replace(/0x[0-9a-fA-F]{64}/g, "0x").slice(0, 180);
 }
 

@@ -125,8 +125,12 @@ export default function Welcome() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-5 py-10">
-      <section className={`glass w-full rounded-[32px] px-7 py-10 text-center ${mode === "create" ? "max-w-[520px]" : "max-w-[420px]"}`}>
+    <main className="fixed inset-0 grid place-items-center overflow-hidden overscroll-none px-5">
+      <section
+        className={`glass w-full max-h-[min(100dvh-1.5rem,100%)] rounded-[32px] px-7 py-8 text-center sm:py-10 ${
+          mode === "create" ? "max-w-[520px] overflow-y-auto" : "max-w-[420px] overflow-hidden"
+        }`}
+      >
         {mode === "create" ? null : (
           <div className="flex items-center justify-center gap-3">
             <img src="/icon.png" alt="" className="h-14 w-14 rounded-[16px]" />
