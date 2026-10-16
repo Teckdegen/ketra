@@ -144,3 +144,100 @@ body {
     animation: none;
   }
 }
+
+.doc-section h2 {
+  margin-bottom: 0.85rem;
+  font-size: 1.45rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.doc-section p,
+.doc-section li {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #5c5c5c;
+}
+
+.doc-section p + p,
+.doc-section p + ul,
+.doc-section p + ol,
+.doc-section ul + p,
+.doc-section ol + p {
+  margin-top: 1rem;
+}
+
+.doc-section ul,
+.doc-section ol {
+  margin-top: 0.85rem;
+  padding-left: 1.15rem;
+}
+
+.doc-section ul {
+  list-style: disc;
+}
+
+.doc-section ol {
+  list-style: decimal;
+}
+
+.doc-section li + li {
+  margin-top: 0.45rem;
+}
+
+.doc-callout {
+  margin-top: 1.25rem;
+  border-radius: 18px;
+  background: #fff;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid #ececef;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #5c5c5c;
+}
+
+.doc-note {
+  margin-top: 1.25rem;
+  border-left: 2px solid #111;
+  padding: 0.35rem 0 0.35rem 1rem;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #6d6d6d;
+}
+
+.doc-table-wrap {
+  margin-top: 1.15rem;
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid #ececef;
+  background: #fff;
+}
+
+.doc-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.doc-table-wrap th {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  color: #8a8a8a;
+  font-weight: 500;
+  border-bottom: 1px solid #ececef;
+  background: #fafafa;
+}
+
+.doc-table-wrap td {
+  padding: 0.85rem 1rem;
+  color: #3a3a3a;
+  border-bottom: 1px solid #f1f1f3;
+  vertical-align: top;
+}
+
+.doc-table-wrap tr:last-child td {
+  border-bottom: none;
+}

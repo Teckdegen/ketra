@@ -6,7 +6,7 @@ const links = [
   { href: "#authorization", label: "Authorization" },
   { href: "#chains", label: "Chains" },
   { href: "#developers", label: "Developers" },
-  { href: "#docs", label: "Docs" },
+  { href: "/docs", label: "Docs" },
 ];
 
 const marks = [
@@ -50,7 +50,7 @@ export default function Home() {
             ))}
           </div>
           <a
-            href="#contact"
+            href="https://wallet.ketra.network"
             className="ml-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222] sm:px-4 sm:py-2"
           >
             Launch app
@@ -70,13 +70,13 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
-              href="#product"
+              href="https://wallet.ketra.network"
               className="rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
             >
               Launch app
             </a>
             <a
-              href="#docs"
+              href="/docs"
               className="rounded-full bg-[#e6e6e6] px-4 py-2 text-[13px] font-medium text-black hover:bg-[#dedede]"
             >
               Docs
@@ -134,7 +134,7 @@ export default function Home() {
             <h3 className="text-[14px] font-semibold tracking-[-0.01em]">
               One signed batch <span className="text-[#c8c8c8]">›</span>
             </h3>
-            <p id="docs" className="mt-2 max-w-[36ch] text-[13px] leading-[1.45] text-[#8d8d8d]">
+            <p className="mt-2 max-w-[36ch] text-[13px] leading-[1.45] text-[#8d8d8d]">
               The signature covers the chain, the account, the nonce, the deadline, and the exact steps. A replay is rejected.
             </p>
             <div className="relative mt-3 h-[300px]">
