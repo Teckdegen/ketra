@@ -50,10 +50,10 @@ export default function Home() {
             ))}
           </div>
           <a
-            href="https://wallet.ketra.network"
+            href="/get-started"
             className="ml-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222] sm:px-4 sm:py-2"
           >
-            Launch app
+            Get started
           </a>
         </nav>
       </header>
@@ -70,10 +70,10 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
-              href="https://wallet.ketra.network"
+              href="/get-started"
               className="rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
             >
-              Launch app
+              Get started
             </a>
             <a
               href="/docs"

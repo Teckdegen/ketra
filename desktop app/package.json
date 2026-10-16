@@ -2,11 +2,65 @@
   "name": "ketra-desktop",
   "version": "0.1.0",
   "private": true,
+  "description": "Ketra desktop wallet shell",
+  "author": "Ketra",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win --linux",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "pack:web": "node scripts/copy-builds.js"
+  },
+  "build": {
+    "appId": "network.ketra.desktop",
+    "productName": "Ketra",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "icon.png",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        "dmg"
+      ],
+      "icon": "icon.png"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Finance",
+      "icon": "icon.png"
+    },
+    "portable": {
+      "artifactName": "Ketra-Windows.exe"
+    },
+    "dmg": {
+      "artifactName": "Ketra-macOS.dmg"
+    },
+    "appImage": {
+      "artifactName": "Ketra-linux.AppImage"
+    }
   },
   "devDependencies": {
-    "electron": "^35.7.5"
+    "electron": "^35.7.5",
+    "electron-builder": "^26.0.12"
   }
 }

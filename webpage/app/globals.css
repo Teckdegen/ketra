@@ -9,6 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-instrument);
+  --font-serif: var(--font-instrument-serif);
 }
 
 html {
@@ -145,60 +146,61 @@ body {
   }
 }
 
-.doc-section h2 {
+.docs-prose h2 {
   margin-bottom: 0.85rem;
-  font-size: 1.45rem;
-  font-weight: 500;
-  letter-spacing: -0.03em;
+  font-family: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  font-size: 1.7rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   line-height: 1.15;
+  color: #111;
 }
 
-.doc-section p,
-.doc-section li {
+.docs-prose p,
+.docs-prose li {
   font-size: 15px;
-  line-height: 1.7;
-  color: #5c5c5c;
+  line-height: 1.75;
+  color: #5a5a5a;
 }
 
-.doc-section p + p,
-.doc-section p + ul,
-.doc-section p + ol,
-.doc-section ul + p,
-.doc-section ol + p {
+.docs-prose p + p,
+.docs-prose p + ul,
+.docs-prose p + ol,
+.docs-prose ul + p,
+.docs-prose ol + p {
   margin-top: 1rem;
 }
 
-.doc-section ul,
-.doc-section ol {
+.docs-prose ul,
+.docs-prose ol {
   margin-top: 0.85rem;
   padding-left: 1.15rem;
 }
 
-.doc-section ul {
+.docs-prose ul {
   list-style: disc;
 }
 
-.doc-section ol {
+.docs-prose ol {
   list-style: decimal;
 }
 
-.doc-section li + li {
+.docs-prose li + li {
   margin-top: 0.45rem;
 }
 
-.doc-callout {
+.docs-callout {
   margin-top: 1.25rem;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #fff;
   padding: 1.1rem 1.2rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  border: 1px solid #ececef;
+  border: 1px solid #ebe7e0;
   font-size: 15px;
   line-height: 1.65;
-  color: #5c5c5c;
+  color: #5a5a5a;
 }
 
-.doc-note {
+.docs-note {
   margin-top: 1.25rem;
   border-left: 2px solid #111;
   padding: 0.35rem 0 0.35rem 1rem;
@@ -207,37 +209,37 @@ body {
   color: #6d6d6d;
 }
 
-.doc-table-wrap {
+.docs-table {
   margin-top: 1.15rem;
   overflow-x: auto;
-  border-radius: 16px;
-  border: 1px solid #ececef;
+  border-radius: 14px;
+  border: 1px solid #ebe7e0;
   background: #fff;
 }
 
-.doc-table-wrap table {
+.docs-table table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   line-height: 1.45;
 }
 
-.doc-table-wrap th {
+.docs-table th {
   text-align: left;
   padding: 0.85rem 1rem;
   color: #8a8a8a;
   font-weight: 500;
-  border-bottom: 1px solid #ececef;
-  background: #fafafa;
+  border-bottom: 1px solid #ebe7e0;
+  background: #f7f4ef;
 }
 
-.doc-table-wrap td {
+.docs-table td {
   padding: 0.85rem 1rem;
   color: #3a3a3a;
-  border-bottom: 1px solid #f1f1f3;
+  border-bottom: 1px solid #f1ece4;
   vertical-align: top;
 }
 
-.doc-table-wrap tr:last-child td {
+.docs-table tr:last-child td {
   border-bottom: none;
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Sans } from "next/font/google";
+import { Instrument_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
 const sans = Instrument_Sans({
@@ -8,14 +8,20 @@ const sans = Instrument_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+const serif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
 export const metadata: Metadata = {
   title: "Ketra",
-  description: "A smart-account wallet. An ML-DSA-44 signature authorizes every spend.",
+  description: "A smart account wallet. An MLDSA44 signature authorizes every spend.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sans.variable} h-full antialiased`}>
+    <html lang="en" className={`${sans.variable} ${serif.variable} h-full antialiased`}>
       <body className={`${sans.className} min-h-full`}>{children}</body>
     </html>
   );

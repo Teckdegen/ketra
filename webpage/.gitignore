@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# desktop installers (too large for git; keep locally or host separately)
+/public/downloads/*.zip
+/public/downloads/*.exe
+/public/downloads/*.dmg
+/public/downloads/*.AppImage
+!/public/downloads/README.md
