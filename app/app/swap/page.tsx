@@ -15,6 +15,7 @@ const routes: Record<NonNullable<Quote["version"]>, string> = {
   v3: "Uniswap v3",
   v2: "Uniswap v2",
   curve: "Pons bonding curve",
+  multi: "Multi-hop",
   wrap: "WETH contract",
 };
 

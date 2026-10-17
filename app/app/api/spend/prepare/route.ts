@@ -11,7 +11,13 @@ import { tokenById, USDG_ADDRESS, WETH_ADDRESS } from "@/lib/tokens";
 export const maxDuration = 60;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const routeNames = { v4: "Uniswap v4", v3: "Uniswap v3", v2: "Uniswap v2", curve: "Pons bonding curve" } as const;
+const routeNames = {
+  v4: "Uniswap v4",
+  v3: "Uniswap v3",
+  v2: "Uniswap v2",
+  curve: "Pons bonding curve",
+  multi: "Multi-hop",
+} as const;
 
 type Body = {
   account?: string;
@@ -73,31 +79,72 @@ export async function POST(request: Request) {
       };
     } else {
       const minimum = (route.amountOut * 99n) / 100n;
-      plan =
-        route.version === "curve"
+      const legPlan = (leg: typeof route, legPayEth: boolean, legReceiveEth: boolean, amountIn: bigint, amountOutMin: bigint) =>
+        leg.version === "curve"
           ? {
               kind: "curve",
-              side: route.side,
-              curve: route.curve,
-              tokenIn: route.tokenIn,
-              tokenOut: route.tokenOut,
-              amountIn: amount.toString(),
-              amountOutMin: minimum.toString(),
+              side: leg.side,
+              curve: leg.curve,
+              tokenIn: leg.tokenIn,
+              tokenOut: leg.tokenOut,
+              amountIn: amountIn.toString(),
+              amountOutMin: amountOutMin.toString(),
             }
           : {
               kind: "swap",
-              version: route.version,
-              tokenIn: route.tokenIn,
-              tokenOut: route.tokenOut,
-              amountIn: amount.toString(),
-              amountOutMin: minimum.toString(),
-              fee: route.fee,
-              tick: route.tick,
-              hooks: route.hooks,
-              path: route.path,
-              payEth: pay.id === "ETH" && route.tokenIn.toLowerCase() === WETH_ADDRESS.toLowerCase(),
-              receiveEth: receive.id === "ETH" && route.tokenOut.toLowerCase() === WETH_ADDRESS.toLowerCase(),
+              version: leg.version,
+              tokenIn: leg.tokenIn,
+              tokenOut: leg.tokenOut,
+              amountIn: amountIn.toString(),
+              amountOutMin: amountOutMin.toString(),
+              fee: leg.fee,
+              tick: leg.tick,
+              hooks: leg.hooks,
+              path: leg.path,
+              payEth: legPayEth,
+              receiveEth: legReceiveEth,
             };
+
+      if (route.version === "multi" && route.hops && route.hops.length >= 2) {
+        const hops = route.hops;
+        plan = {
+          kind: "multi",
+          amountOutMin: minimum.toString(),
+          hops: hops.map((leg, index) => {
+            const next = hops[index + 1];
+            // Later hops spend the prior hop's min-out cushion so slippage on hop 1 cannot strand hop 2.
+            const amountIn = index === 0 ? amount : (hops[index - 1]!.amountOut * 99n) / 100n;
+            const amountOutMin = index < hops.length - 1 ? (leg.amountOut * 99n) / 100n : minimum;
+            const payEth = index === 0 && pay.id === "ETH" && leg.tokenIn.toLowerCase() === WETH_ADDRESS.toLowerCase();
+            // Only the last hop may unwrap into the user's ETH balance; bridges use unwrapForNext once.
+            const receiveEth =
+              index === hops.length - 1 &&
+              receive.id === "ETH" &&
+              leg.tokenOut.toLowerCase() === WETH_ADDRESS.toLowerCase();
+            return {
+              ...legPlan(leg, payEth, receiveEth, amountIn, amountOutMin),
+              unwrapForNext: Boolean(
+                next &&
+                  next.tokenIn === "0x0000000000000000000000000000000000000000" &&
+                  leg.tokenOut.toLowerCase() === WETH_ADDRESS.toLowerCase(),
+              ),
+              wrapForNext: Boolean(
+                next &&
+                  next.tokenIn.toLowerCase() === WETH_ADDRESS.toLowerCase() &&
+                  leg.tokenOut === "0x0000000000000000000000000000000000000000",
+              ),
+            };
+          }),
+        };
+      } else {
+        plan = legPlan(
+          route,
+          pay.id === "ETH" && route.tokenIn.toLowerCase() === WETH_ADDRESS.toLowerCase(),
+          receive.id === "ETH" && route.tokenOut.toLowerCase() === WETH_ADDRESS.toLowerCase(),
+          amount,
+          minimum,
+        );
+      }
       summary = {
         kind: "swap",
         title: "Swap",
@@ -110,7 +157,10 @@ export async function POST(request: Request) {
         },
         to: { label: "Route", address: undefined },
         fee: { amount: formatAmount(route.charged, pay.decimals), symbol: pay.symbol, rate: "0.5%" },
-        route: `${routeNames[route.version]} · 1% max slippage`,
+        route:
+          route.version === "multi"
+            ? `${routeNames.multi} · ${pay.symbol} → bridge → ${receive.symbol} · 1% max slippage`
+            : `${routeNames[route.version]} · 1% max slippage`,
       };
     }
   } else if (body.kind === "morpho" || body.kind === "steakhouse") {

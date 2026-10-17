@@ -103,6 +103,27 @@ function build(plan: Plan, account: string): Step[] {
       account,
     });
   }
+  if (plan.kind === "multi") {
+    const hops = Array.isArray(plan.hops) ? (plan.hops as Plan[]) : [];
+    if (hops.length < 2) throw new Error("There is no route for this swap.");
+    const steps: Step[] = [];
+    for (let i = 0; i < hops.length; i++) {
+      const hop = hops[i]!;
+      steps.push(...build(hop, account));
+      if (hop.unwrapForNext) {
+        steps.push(allow(WETH));
+        steps.push(call(WETH, 0n, `0x2e1a7d4d${coder.encode(["uint256"], [MaxUint256]).slice(2)}`));
+      }
+      if (hop.wrapForNext) {
+        const wrapAmount = BigInt(String(hops[i + 1]?.amountIn ?? "0"));
+        if (wrapAmount > 0n) {
+          steps.push(allow(WETH));
+          steps.push(call(WETH, wrapAmount, "0xd0e30db0"));
+        }
+      }
+    }
+    return steps;
+  }
   if (plan.kind === "curve") {
     const amount = BigInt(String(plan.amountIn));
     const amountOutMin = BigInt(String(plan.amountOutMin));

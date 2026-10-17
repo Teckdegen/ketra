@@ -1,11 +1,16 @@
 import { formatAmount, parseAmount } from "./amount";
 import { ethCall as call, resolveToken } from "./chain";
-import { isWrapPair, poolAddress, tokenByAddress, WETH_ADDRESS, type Token } from "./tokens";
+import { isWrapPair, poolAddress, tokenByAddress, tokenById, WETH_ADDRESS, type Token } from "./tokens";
 
 const V4_QUOTER = "0x8dc178efb8111bb0973dd9d722ebeff267c98f94";
 const V3_QUOTER = "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7";
 const V2_ROUTER = "0x89e5db8b5aa49aa85ac63f691524311aeb649eba";
-const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
+/** Pons factories (current launches, docs active, legacy). */
+const PONS_FACTORIES = [
+  "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e",
+  "0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB",
+  "0x0c37a24F5D23A486FA692d1500881d698B1F77a4",
+];
 const PONS_HOOK = "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044";
 export const NATIVE = "0x0000000000000000000000000000000000000000";
 
@@ -19,7 +24,7 @@ const V3_FEES = [100, 500, 3000, 10000];
 const BPS = 10_000n;
 
 export type Quote = {
-  version: "v4" | "v3" | "v2" | "curve" | "wrap" | null;
+  version: "v4" | "v3" | "v2" | "curve" | "multi" | "wrap" | null;
   amountOut: string | null;
 };
 
@@ -97,7 +102,7 @@ function measuredNet(amount: bigint) {
 export { formatAmount, parseAmount };
 
 export type Route = {
-  version: "v4" | "v3" | "v2" | "curve";
+  version: "v4" | "v3" | "v2" | "curve" | "multi";
   amountIn: bigint;
   amountOut: bigint;
   /** Pool or curve currencies. The zero address is native ETH, which is not wrapped first. */
@@ -111,23 +116,32 @@ export type Route = {
   side?: "buy" | "sell";
   /** Ketra's fee in the pay token. */
   charged: bigint;
+  /** Sequential legs when no direct pool exists (e.g. USDG → ETH → Pons curve). */
+  hops?: Route[];
 };
 
 type Launch = { token: string; curve: string; pairToken: string; poolFee: number; tickSpacing: number; phase: number };
 
-/** The Pons v2 launch record for a token, or null when it was not launched there. */
+/** The Pons launch record for a token across known factories, or null. */
 async function ponsLaunch(token: Token): Promise<Launch | null> {
   if (!token.address || tokenByAddress(token.address)) return null;
-  const data = await call(PONS_FACTORY, "0x3cf28b5a" + addr(token.address));
-  if (!data || data.length < 2 + 64 * 15 || readWord(data, 14) !== 1n) return null;
-  return {
-    token: readAddress(data, 0),
-    curve: readAddress(data, 1),
-    pairToken: readAddress(data, 4),
-    poolFee: Number(readWord(data, 6)),
-    tickSpacing: Number(BigInt.asIntN(256, readWord(data, 7))),
-    phase: Number(readWord(data, 10)),
-  };
+  for (const factory of PONS_FACTORIES) {
+    const data = await call(factory, "0x3cf28b5a" + addr(token.address));
+    if (!data) continue;
+    const words = Math.floor((data.length - 2) / 64);
+    // Current factory layout: exists flag at word 14.
+    if (words >= 15 && readWord(data, 14) === 1n) {
+      return {
+        token: readAddress(data, 0),
+        curve: readAddress(data, 1),
+        pairToken: readAddress(data, 4),
+        poolFee: Number(readWord(data, 6)),
+        tickSpacing: Number(BigInt.asIntN(256, readWord(data, 7))),
+        phase: Number(readWord(data, 10)),
+      };
+    }
+  }
+  return null;
 }
 
 function pairs(token: Token, pairToken: string) {
@@ -171,11 +185,14 @@ function v4Pool(tokenIn: string, tokenOut: string, fee: number, tick: number, ho
   return { currency0, currency1, fee, tick, hooks, tokenIn, tokenOut };
 }
 
+function pickBest(routes: Route[]) {
+  return routes.reduce<Route | null>((winner, route) => (winner == null || route.amountOut > winner.amountOut ? route : winner), null);
+}
+
 /**
- * Best output across Uniswap v4, v3 and v2, and Pons v2 launches: the bonding curve before graduation,
- * the hooked v4 pool after it. Spend quotes take Ketra's 0.5% fee off the input; market quotes do not.
+ * Direct single-venue route (v4 / v3 / v2 / curve). No recursive multi-hop.
  */
-export async function findRoute(
+async function findDirectRoute(
   pay: Token,
   receive: Token,
   amount: bigint,
@@ -191,7 +208,6 @@ export async function findRoute(
   const tokenIn = poolAddress(pay);
   const tokenOut = poolAddress(receive);
   if (same(tokenIn, tokenOut)) return "wrap";
-  // DEX fees come off the signed amount before the swap. Curve token legs leave room for a fee after the call.
   const curveIn = market ? amount : pay.id === "ETH" ? quoted : measuredNet(amount);
   const base = { amountIn: amount, tokenIn, tokenOut, charged: market ? 0n : amount - quoted };
 
@@ -215,7 +231,11 @@ export async function findRoute(
     const pair = same(launch.pairToken, NATIVE) ? NATIVE : launch.pairToken;
     if (launch.phase === 0) curves.push({ launch, side });
     else if (launch.phase === 2) {
-      pools.push(side === "buy" ? v4Pool(pair, launch.token, launch.poolFee, launch.tickSpacing, PONS_HOOK) : v4Pool(launch.token, pair, launch.poolFee, launch.tickSpacing, PONS_HOOK));
+      pools.push(
+        side === "buy"
+          ? v4Pool(pair, launch.token, launch.poolFee, launch.tickSpacing, PONS_HOOK)
+          : v4Pool(launch.token, pair, launch.poolFee, launch.tickSpacing, PONS_HOOK),
+      );
     }
   }
 
@@ -246,13 +266,22 @@ export async function findRoute(
 
   const routes: Route[] = [];
   if (v4) {
-    const pool = pools[v4.index];
-    routes.push({ ...base, version: "v4", amountOut: v4.amount, tokenIn: pool.tokenIn, tokenOut: pool.tokenOut, fee: pool.fee, tick: pool.tick, hooks: pool.hooks });
+    const pool = pools[v4.index]!;
+    routes.push({
+      ...base,
+      version: "v4",
+      amountOut: v4.amount,
+      tokenIn: pool.tokenIn,
+      tokenOut: pool.tokenOut,
+      fee: pool.fee,
+      tick: pool.tick,
+      hooks: pool.hooks,
+    });
   }
   if (v3) routes.push({ ...base, version: "v3", amountOut: v3.amount, fee: V3_FEES[v3.index] });
   if (v2) routes.push({ ...base, version: "v2", amountOut: v2.amount, path: paths[v2.index] });
   if (curve) {
-    const { launch, side } = curves[curve.index];
+    const { launch, side } = curves[curve.index]!;
     const pair = same(launch.pairToken, NATIVE) ? NATIVE : launch.pairToken;
     routes.push({
       ...base,
@@ -265,7 +294,78 @@ export async function findRoute(
       charged: amount - curveIn,
     });
   }
-  return routes.reduce<Route | null>((winner, route) => (winner == null || route.amountOut > winner.amountOut ? route : winner), null);
+  return pickBest(routes);
+}
+
+async function pairTokenAsToken(pairToken: string): Promise<Token | null> {
+  if (same(pairToken, NATIVE)) return tokenById("ETH")!;
+  if (same(pairToken, WETH_ADDRESS)) return tokenById("WETH")!;
+  return resolveToken(pairToken);
+}
+
+/** Bridge via the launch's quote asset (usually ETH) or WETH when no direct pool exists. */
+async function findMultiHop(
+  pay: Token,
+  receive: Token,
+  amount: bigint,
+  account?: string,
+  options?: { market?: boolean },
+): Promise<Route | null> {
+  const eth = tokenById("ETH")!;
+  const mids: Token[] = [];
+  const seen = new Set<string>();
+  const addMid = (token: Token | null | undefined) => {
+    if (!token || token.id === pay.id || token.id === receive.id) return;
+    if (seen.has(token.id)) return;
+    seen.add(token.id);
+    mids.push(token);
+  };
+
+  const [sold, bought] = await Promise.all([ponsLaunch(pay), ponsLaunch(receive)]);
+  if (bought && !pairs(pay, bought.pairToken)) addMid(await pairTokenAsToken(bought.pairToken));
+  if (sold && !pairs(receive, sold.pairToken)) addMid(await pairTokenAsToken(sold.pairToken));
+  // Generic USDG (or any) ↔ meme bridge through ETH when neither side is already ETH/WETH.
+  if (pay.id !== "ETH" && pay.id !== "WETH" && receive.id !== "ETH" && receive.id !== "WETH") addMid(eth);
+
+  const composed: Route[] = [];
+  for (const mid of mids) {
+    const hop1 = await findDirectRoute(pay, mid, amount, account, options);
+    if (!hop1 || hop1 === "wrap" || hop1.amountOut === 0n) continue;
+    // Second leg also pays Ketra's defi fee on-chain — quote it the same way (not market).
+    const hop2 = await findDirectRoute(mid, receive, hop1.amountOut, account, options);
+    if (!hop2 || hop2 === "wrap" || hop2.amountOut === 0n) continue;
+    composed.push({
+      version: "multi",
+      amountIn: amount,
+      amountOut: hop2.amountOut,
+      tokenIn: hop1.tokenIn,
+      tokenOut: hop2.tokenOut,
+      charged: hop1.charged + hop2.charged,
+      hops: [hop1, hop2],
+    });
+  }
+  return pickBest(composed);
+}
+
+/**
+ * Best output across Uniswap v4, v3 and v2, and Pons launches.
+ * When there is no direct pool (e.g. USDG → bonding-curve token), bridges via the pair asset (usually ETH).
+ */
+export async function findRoute(
+  pay: Token,
+  receive: Token,
+  amount: bigint,
+  account?: string,
+  options?: { market?: boolean },
+): Promise<Route | "wrap" | null> {
+  if (amount === 0n || pay.id === receive.id) return null;
+  if (isWrapPair(pay, receive)) return "wrap";
+
+  const direct = await findDirectRoute(pay, receive, amount, account, options);
+  if (direct === "wrap") return "wrap";
+
+  const multi = await findMultiHop(pay, receive, amount, account, options);
+  return pickBest([direct, multi].filter((route): route is Route => Boolean(route)));
 }
 
 export async function quoteSwap(payId: string, receiveId: string, amountText: string, account?: string): Promise<Quote> {
