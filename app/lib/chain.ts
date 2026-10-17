@@ -57,12 +57,24 @@ function decodeString(hex: string | null) {
   return null;
 }
 
+/** Prefer a gateway that actually serves Pons launch logos (ipfs.io often 429s). */
+function ipfsHttp(cidPath: string) {
+  const path = cidPath.replace(/^ipfs\//, "").replace(/^\/+/, "");
+  return `https://gateway.pinata.cloud/ipfs/${path}`;
+}
+
 function publicUrl(value: string | null) {
   if (!value) return null;
   const url = value.trim();
-  if (url.startsWith("ipfs://")) return `https://ipfs.io/ipfs/${url.slice(7).replace(/^ipfs\//, "")}`;
+  if (url.startsWith("ipfs://")) return ipfsHttp(url.slice(7));
+  if (/^https?:\/\/[^/]+\/ipfs\//i.test(url)) {
+    const path = url.replace(/^https?:\/\/[^/]+\/ipfs\//i, "");
+    return ipfsHttp(path);
+  }
   if (url.startsWith("ar://")) return `https://arweave.net/${url.slice(5)}`;
-  return /^https:\/\/[^\s"'<>]+$/.test(url) ? url : null;
+  if (/^https:\/\/[^\s"'<>]+$/i.test(url)) return url;
+  if (/^http:\/\/[^\s"'<>]+$/i.test(url)) return url.replace(/^http:/i, "https:");
+  return null;
 }
 
 async function dexPairs(path: string) {
@@ -95,13 +107,23 @@ export async function markets(addresses: string[]) {
         .filter((pair) => pair.baseToken.address.toLowerCase() === address)
         .sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
       const best = own[0];
+      const image =
+        own.find((pair) => pair.info?.imageUrl)?.info?.imageUrl ??
+        pairs.find((pair) => {
+          const base = pair.baseToken.address.toLowerCase() === address;
+          const quote = pair.quoteToken.address.toLowerCase() === address;
+          return (base || quote) && pair.info?.imageUrl;
+        })?.info?.imageUrl ??
+        null;
       const market = best
         ? {
             priceUsd: best.priceUsd ? Number(best.priceUsd) : null,
-            image: own.find((pair) => pair.info?.imageUrl)?.info?.imageUrl ?? null,
+            image,
             liquidity: best.liquidity?.usd ?? 0,
           }
-        : null;
+        : image
+          ? { priceUsd: null, image, liquidity: 0 }
+          : null;
       marketCache.set(address, { at: now, market });
       result.set(address, market);
     }
@@ -124,17 +146,21 @@ export async function tokenInfo(address: string): Promise<Token | null> {
     return stock;
   }
 
-  const [name, symbol, decimals, logo] = await Promise.all([
+  // Pons V1/V2 tokens expose logo() onchain (ipfs://…). DexScreener has a CDN resize when indexed.
+  const [name, symbol, decimals, logo, market] = await Promise.all([
     ethCall(key, "0x06fdde03").then(decodeString),
     ethCall(key, "0x95d89b41").then(decodeString),
     ethCall(key, "0x313ce567"),
     ethCall(key, "0xfb7f21eb").then(decodeString),
+    markets([key]),
   ]);
   const places = decimals ? Number(BigInt(decimals.slice(0, 66))) : NaN;
   let token: Token | null = null;
   if (symbol && Number.isInteger(places) && places >= 0 && places <= 36) {
     const onchain = publicUrl(logo);
-    const image = onchain ?? (await markets([key])).get(key)?.image ?? "";
+    const dex = market.get(key)?.image ?? null;
+    // DexScreener CDN first (reliable), then onchain logo via Pinata gateway.
+    const image = dex || onchain || "";
     token = { id: key, symbol: symbol.slice(0, 16), name: (name || symbol).slice(0, 48), decimals: places, logo: image, address: key };
   }
   infoCache.set(key, { at: Date.now(), token });

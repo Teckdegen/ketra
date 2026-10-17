@@ -6,16 +6,41 @@ import { formatValue, useBalanceUnit } from "@/lib/display";
 import { isAddress, type Token } from "@/lib/tokens";
 import { rememberToken, useWallet } from "@/lib/use-wallet";
 
+function ipfsFallback(url: string) {
+  const match = url.match(/\/ipfs\/(.+)$/i) || url.match(/^ipfs:\/\/(.+)$/i);
+  if (!match?.[1]) return null;
+  const path = match[1].replace(/^ipfs\//, "");
+  const gates = [
+    `https://gateway.pinata.cloud/ipfs/${path}`,
+    `https://dweb.link/ipfs/${path}`,
+    `https://ipfs.io/ipfs/${path}`,
+  ];
+  const next = gates.find((gate) => gate !== url);
+  return next ?? null;
+}
+
 export function TokenLogo({ token, className = "h-6 w-6" }: { token: Pick<Token, "logo" | "symbol">; className?: string }) {
-  const [broken, setBroken] = useState("");
-  if (!token.logo || broken === token.logo) {
+  const [src, setSrc] = useState(token.logo);
+  useEffect(() => setSrc(token.logo), [token.logo]);
+  if (!src) {
     return (
       <span className={`${className} flex shrink-0 items-center justify-center rounded-full bg-black text-[40%] font-medium text-white`}>
         {token.symbol.slice(0, 1).toUpperCase()}
       </span>
     );
   }
-  return <img src={token.logo} alt="" onError={() => setBroken(token.logo)} className={`${className} shrink-0 rounded-full bg-white object-cover`} />;
+  return (
+    <img
+      src={src}
+      alt=""
+      onError={() => {
+        const next = ipfsFallback(src);
+        if (next) setSrc(next);
+        else setSrc("");
+      }}
+      className={`${className} shrink-0 rounded-full bg-white object-cover`}
+    />
+  );
 }
 
 export function TokenPicker({
