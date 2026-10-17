@@ -55,7 +55,7 @@ const ketraContracts = [
   { name: "Factory", address: "0x72FEE9b929eCdCd7517888ce3305614B4722808c", note: "CREATE2 deploy of key blobs and accounts" },
   { name: "MLDSA44 verifier", address: "0x91c02D5Ac2F0616cE87D63b5418f8567AE07362a", note: "On chain signature check" },
   { name: "SHAKE helper", address: "0x31cC22Cc0e9Bf60293a04cA69743001bd2A53826", note: "Pinned hash helper for the verifier" },
-  { name: "$KTR", address: "0x7e3d67c36493225805a91fe17a3f6afda65079d8", note: "Gas rail token on Pons" },
+  { name: "$KTR", address: "0x7e3d67c36493225805a91fe17a3f6afda65079d8", note: "Fee burn token on Pons" },
 ];
 
 const chainContracts = [
@@ -405,14 +405,14 @@ export function Docs() {
                 </table>
               </div>
               <p>
-                Fees go to a recipient fixed when the account is created. The account cannot change that address later.
+                Fees go to a recipient fixed when the account is created. The account cannot change that address later. 30% of those protocol fees are used by the team to buy and burn $KTR.
               </p>
             </section>
 
             <section id="ktr" className="docs-prose scroll-mt-24 pt-12">
               <h2>$KTR</h2>
               <p>
-                $KTR is the stake that runs Ketra&apos;s gas rail. Ketra already separates the owner key, which can move funds, from the gas key, which only pays network fee and submits execute. $KTR is how that gas path gets economic weight.
+                $KTR is Ketra&apos;s product token. Demand is tied to wallet usage: as accounts send, swap, and call DeFi, protocol fees accrue, and the team burns $KTR with 30% of those fees.
               </p>
               <p className="not-prose flex flex-wrap items-center gap-3 pt-1 pb-2">
                 <a
@@ -435,20 +435,20 @@ export function Docs() {
                 </a>
               </p>
               <ul>
-                <li>Relayers and gas payers stake $KTR to submit executes for accounts.</li>
-                <li>Accounts that hold or lock $KTR get cheaper or priority relay.</li>
-                <li>Unstaked or abusive relay can be cut off or slashed under the rail rules.</li>
+                <li>30% of Ketra protocol fees are used to buy $KTR and burn it.</li>
+                <li>Burns are run by the team from fee proceeds as volume moves through the wallet.</li>
+                <li>More usage means more fees, which means more buy-and-burn pressure on $KTR.</li>
               </ul>
               <p>
-                Demand comes from using the wallet, not from a blank narrative. Competitors cannot fake that moat without copying the account model and the relay stack. Short form: no stake, no priority execute.
+                Short form: fees from the product fund the burn. $KTR is not a second owner key and it cannot spend from a Ketra account. Network gas on Robinhood Chain remains ETH.
               </p>
               <div className="docs-note">
                 <p>
-                  $KTR is the product token for the gas rail. It is not a second owner key and it cannot spend from a Ketra account. Network gas on Robinhood Chain remains ETH. Trade it on the{" "}
+                  Trade $KTR on the{" "}
                   <a href={BUY_KETRA} target="_blank" rel="noopener noreferrer">
                     Pons launchpad
                   </a>
-                  .
+                  . The burn share is 30% of protocol fees collected by Ketra; it is separate from Robinhood Chain gas paid in ETH.
                 </p>
               </div>
             </section>
