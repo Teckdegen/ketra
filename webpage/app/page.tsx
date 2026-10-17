@@ -52,10 +52,14 @@ export default function Home() {
             ))}
           </div>
           <a
-            href="/get-started"
-            className="ml-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222] sm:px-4 sm:py-2"
+            href={BUY_KETRA}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222] sm:px-4 sm:py-2"
           >
-            Get started
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logos/pons.png" alt="" className="h-4 w-4 rounded-sm object-contain" />
+            Buy Ketra
           </a>
         </nav>
       </header>
