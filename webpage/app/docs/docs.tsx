@@ -189,14 +189,6 @@ export function Docs() {
               Website <span className="text-[#999]">›</span>
             </a>
             <a
-              href={BUY_KETRA}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden rounded-full border border-[#111] px-3.5 py-1.5 text-[12px] font-medium hover:bg-black/5 sm:inline-flex"
-            >
-              Buy Ketra
-            </a>
-            <a
               href="/get-started"
               className="rounded-full bg-black px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[#222]"
             >
@@ -427,8 +419,10 @@ export function Docs() {
                   href={BUY_KETRA}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white no-underline hover:bg-[#222]"
+                  className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white no-underline hover:bg-[#222]"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logos/pons.png" alt="" className="h-4 w-4 rounded-sm object-contain" />
                   Buy Ketra on Pons
                 </a>
                 <a

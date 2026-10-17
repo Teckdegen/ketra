@@ -78,14 +78,6 @@ export default function Home() {
               Get started
             </a>
             <a
-              href={BUY_KETRA}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full border border-[#111] bg-transparent px-4 py-2 text-[13px] font-medium text-black hover:bg-black/5"
-            >
-              Buy Ketra
-            </a>
-            <a
               href="/docs"
               className="rounded-full bg-[#e6e6e6] px-4 py-2 text-[13px] font-medium text-black hover:bg-[#dedede]"
             >
@@ -359,8 +351,10 @@ export default function Home() {
               href={BUY_KETRA}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
+              className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logos/pons.png" alt="" className="h-4 w-4 rounded-sm object-contain" />
               Buy Ketra
             </a>
             <a
