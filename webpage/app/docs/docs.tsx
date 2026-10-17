@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 const EXPLORER = "https://robinhoodchain.blockscout.com";
+const BUY_KETRA = "https://ponsfamily.com/launchpad/0x7e3d67c36493225805a91fe17a3f6afda65079d8";
+const KTR_TOKEN = "0x7e3d67c36493225805a91fe17a3f6afda65079d8";
 
 const toc = [
   { id: "start", label: "Start here" },
@@ -53,6 +55,7 @@ const ketraContracts = [
   { name: "Factory", address: "0x72FEE9b929eCdCd7517888ce3305614B4722808c", note: "CREATE2 deploy of key blobs and accounts" },
   { name: "MLDSA44 verifier", address: "0x91c02D5Ac2F0616cE87D63b5418f8567AE07362a", note: "On chain signature check" },
   { name: "SHAKE helper", address: "0x31cC22Cc0e9Bf60293a04cA69743001bd2A53826", note: "Pinned hash helper for the verifier" },
+  { name: "$KTR", address: "0x7e3d67c36493225805a91fe17a3f6afda65079d8", note: "Gas rail token on Pons" },
 ];
 
 const chainContracts = [
@@ -184,6 +187,14 @@ export function Docs() {
               className="hidden items-center gap-1 rounded-full border border-[#111] px-3.5 py-1.5 text-[12px] font-medium sm:inline-flex"
             >
               Website <span className="text-[#999]">›</span>
+            </a>
+            <a
+              href={BUY_KETRA}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden rounded-full border border-[#111] px-3.5 py-1.5 text-[12px] font-medium hover:bg-black/5 sm:inline-flex"
+            >
+              Buy Ketra
             </a>
             <a
               href="/get-started"
@@ -411,6 +422,24 @@ export function Docs() {
               <p>
                 $KTR is the stake that runs Ketra&apos;s gas rail. Ketra already separates the owner key, which can move funds, from the gas key, which only pays network fee and submits execute. $KTR is how that gas path gets economic weight.
               </p>
+              <p className="not-prose flex flex-wrap items-center gap-3 pt-1 pb-2">
+                <a
+                  href={BUY_KETRA}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white no-underline hover:bg-[#222]"
+                >
+                  Buy Ketra on Pons
+                </a>
+                <a
+                  href={`${EXPLORER}/token/${KTR_TOKEN}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13px] font-medium text-[#666] underline decoration-[#d5d0c8] underline-offset-4 hover:text-black hover:decoration-black"
+                >
+                  Token {KTR_TOKEN.slice(0, 6)}…{KTR_TOKEN.slice(-4)}
+                </a>
+              </p>
               <ul>
                 <li>Relayers and gas payers stake $KTR to submit executes for accounts.</li>
                 <li>Accounts that hold or lock $KTR get cheaper or priority relay.</li>
@@ -421,7 +450,11 @@ export function Docs() {
               </p>
               <div className="docs-note">
                 <p>
-                  $KTR is the product token for the gas rail. It is not a second owner key and it cannot spend from a Ketra account. Network gas on Robinhood Chain remains ETH.
+                  $KTR is the product token for the gas rail. It is not a second owner key and it cannot spend from a Ketra account. Network gas on Robinhood Chain remains ETH. Trade it on the{" "}
+                  <a href={BUY_KETRA} target="_blank" rel="noopener noreferrer">
+                    Pons launchpad
+                  </a>
+                  .
                 </p>
               </div>
             </section>
@@ -634,6 +667,15 @@ export function Docs() {
                   className="font-medium text-black underline decoration-[#d5d0c8] underline-offset-4 hover:decoration-black"
                 >
                   Open the web wallet
+                </a>
+                {" · "}
+                <a
+                  href={BUY_KETRA}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-black underline decoration-[#d5d0c8] underline-offset-4 hover:decoration-black"
+                >
+                  Buy Ketra
                 </a>
               </p>
             </section>

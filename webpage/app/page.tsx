@@ -1,6 +1,8 @@
 import { Ledger } from "./ledger";
 import { Research } from "./research";
 
+const BUY_KETRA = "https://ponsfamily.com/launchpad/0x7e3d67c36493225805a91fe17a3f6afda65079d8";
+
 const links = [
   { href: "#product", label: "Product" },
   { href: "#authorization", label: "Authorization" },
@@ -74,6 +76,14 @@ export default function Home() {
               className="rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
             >
               Get started
+            </a>
+            <a
+              href={BUY_KETRA}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full border border-[#111] bg-transparent px-4 py-2 text-[13px] font-medium text-black hover:bg-black/5"
+            >
+              Buy Ketra
             </a>
             <a
               href="/docs"
@@ -344,17 +354,27 @@ export default function Home() {
       <footer id="contact" className="relative z-10 mx-auto max-w-[1180px] px-5 pt-4 pb-10 sm:px-8">
         <div className="flex items-center justify-between gap-6 rounded-[28px] bg-white px-6 py-6 sm:px-12 sm:py-10">
           <span className="text-[15px] font-bold tracking-[-0.04em] italic">KETRA</span>
-          <a
-            href="https://x.com/ketra_network"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e4e4e4] text-[#111] hover:bg-[#f4f4f4]"
-            aria-label="Ketra on X"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-              <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href={BUY_KETRA}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white hover:bg-[#222]"
+            >
+              Buy Ketra
+            </a>
+            <a
+              href="https://x.com/ketra_network"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#e4e4e4] text-[#111] hover:bg-[#f4f4f4]"
+              aria-label="Ketra on X"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            </a>
+          </div>
         </div>
       </footer>
     </div>
