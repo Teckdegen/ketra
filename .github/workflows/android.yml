@@ -19,15 +19,20 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already ships Android SDK at $ANDROID_HOME
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+      - name: Install Android platform 35
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
       - name: Build release APK
         working-directory: android
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-          gradle assembleRelease
+          gradle assembleRelease --stacktrace
           ls -la app/build/outputs/apk/release/
           cp app/build/outputs/apk/release/app-release.apk Ketra.apk
       - name: Upload APK to release
