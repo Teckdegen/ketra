@@ -71,7 +71,7 @@ export function GetStarted() {
         <div className="text-center">
           <h1 className="text-[1.85rem] leading-none font-medium tracking-[-0.04em] text-black sm:text-[2.35rem]">Get started</h1>
           <p className="mx-auto mt-2 max-w-[48ch] text-[13px] leading-5 text-[#8a8a8a] sm:text-[14px]">
-            Web wallet plus desktop for Windows 10+ and Linux x64. Chrome, Brave, Edge, macOS, and mobile are coming soon.
+            Web wallet, desktop for Windows and Linux, and Android APK. Chrome, Brave, Edge, macOS, and the stores are on the way.
           </p>
         </div>
 
@@ -104,8 +104,18 @@ export function GetStarted() {
               <h2 className="text-center text-[13px] font-semibold tracking-[-0.02em]">Mobile</h2>
               <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-3">
                 <Soon label="App Store" src="/logos/platforms/appstore.svg" />
-                <Soon label="Google Play" src="/logos/platforms/play.svg" />
+                <a
+                  href={`${RELEASE}/Ketra.apk`}
+                  className="flex w-[100px] flex-col items-center gap-1.5 rounded-2xl px-1 py-2 hover:bg-[#f6f6f6]"
+                >
+                  <Brand src="/logos/platforms/play.svg" alt="Android APK" />
+                  <span className="text-[12px] font-medium sm:text-[13px]">Android</span>
+                  <span className="text-[10px] text-[#8a8a8a]">APK · install</span>
+                </a>
               </div>
+              <p className="mx-auto mt-3 max-w-[36ch] text-center text-[11px] leading-4 text-[#8a8a8a]">
+                Coming soon to the Play Store. Live now as a direct APK download.
+              </p>
             </section>
 
             <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-5 sm:py-5">

@@ -271,7 +271,7 @@ export function Docs() {
                 </p>
               </div>
               <p>
-                You can use Ketra in the browser at wallet.ketra.network, or through the desktop apps for Windows 10+ and Linux x64. Chrome, Brave, Edge, macOS, App Store, and Google Play are not shipping yet.
+                You can use Ketra in the browser at wallet.ketra.network, through the desktop apps for Windows 10+ and Linux x64, or the Android APK. Chrome, Brave, Edge, macOS, App Store, and Google Play are not shipping yet.
               </p>
             </section>
 
@@ -612,6 +612,11 @@ export function Docs() {
                       <td>Ubuntu/Debian x64 .deb installer (Ketra)</td>
                     </tr>
                     <tr>
+                      <td>Android APK</td>
+                      <td>Live</td>
+                      <td>Direct APK from Get started (sideload)</td>
+                    </tr>
+                    <tr>
                       <td>macOS desktop</td>
                       <td>Coming soon</td>
                       <td>Intel and Apple Silicon builds planned</td>
@@ -624,13 +629,13 @@ export function Docs() {
                     <tr>
                       <td>App Store / Google Play</td>
                       <td>Coming soon</td>
-                      <td></td>
+                      <td>APK is live now; Play Store listing later</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <p>
-                Desktop builds open the same Ketra wallet surface inside a native shell. Download Windows and Linux from Get started. The macOS shell is paused until we ship a build that covers Intel and Apple Silicon cleanly.
+                Desktop and Android builds open the same Ketra wallet surface inside a native shell. Download Windows, Linux, and the Android APK from Get started. The macOS shell is paused until we ship a build that covers Intel and Apple Silicon cleanly.
               </p>
             </section>
 

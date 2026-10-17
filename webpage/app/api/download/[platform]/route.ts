@@ -9,18 +9,20 @@ const FILES = {
   mac: "Ketra-macOS.dmg",
   windows: "Ketra-Setup.exe",
   linux: "Ketra.deb",
+  android: "Ketra.apk",
 } as const;
 
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
   mac: false,
   windows: true,
   linux: true,
+  android: true,
 };
 
 type Platform = keyof typeof FILES;
 
 function isPlatform(value: string): value is Platform {
-  return value === "mac" || value === "windows" || value === "linux";
+  return value === "mac" || value === "windows" || value === "linux" || value === "android";
 }
 
 function missingMessage(platform: Platform) {
