@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.util.Properties
+
+val keystorePropsFile = rootProject.file("keystore/keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+
 android {
     namespace = "network.ketra.wallet"
     compileSdk = 35
@@ -11,15 +18,30 @@ android {
         applicationId = "network.ketra.wallet"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/ketra-release.jks")
+            storePassword = keystoreProps.getProperty("storePassword")
+                ?: System.getenv("KETRA_KEYSTORE_PASSWORD")
+                ?: "ketra-release-2026"
+            keyAlias = keystoreProps.getProperty("keyAlias")
+                ?: System.getenv("KETRA_KEY_ALIAS")
+                ?: "ketra"
+            keyPassword = keystoreProps.getProperty("keyPassword")
+                ?: System.getenv("KETRA_KEY_PASSWORD")
+                ?: "ketra-release-2026"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Sideload APK: signed with the debug key until Play Store publishing.
-            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

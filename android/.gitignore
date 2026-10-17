@@ -2,6 +2,7 @@
 /build/
 /app/build/
 /local.properties
+/keystore/keystore.properties
 *.iml
 .idea/
 .DS_Store
@@ -10,3 +11,4 @@ captures/
 *.aab
 *.ap_
 *.dex
+# Keep ketra-release.jks tracked so sideload updates share one signature.

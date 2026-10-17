@@ -19,13 +19,36 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      # ubuntu-latest already ships Android SDK at $ANDROID_HOME
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
       - name: Install Android platform 35
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - name: Ensure release keystore
+        id: keystore
+        run: |
+          mkdir -p android/keystore
+          if [ ! -f android/keystore/ketra-release.jks ]; then
+            keytool -genkeypair -v \
+              -keystore android/keystore/ketra-release.jks \
+              -alias ketra \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass ketra-release-2026 \
+              -keypass ketra-release-2026 \
+              -dname "CN=Ketra, OU=Mobile, O=Ketra, L=Internet, ST=NA, C=US"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Commit release keystore
+        if: steps.keystore.outputs.created == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/keystore/ketra-release.jks
+          git commit -m "Add Android release keystore for sideload APK signing."
+          git push
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
@@ -35,6 +58,8 @@ jobs:
           gradle assembleRelease --stacktrace
           ls -la app/build/outputs/apk/release/
           cp app/build/outputs/apk/release/app-release.apk Ketra.apk
+          # Confirm it is not the Android debug cert
+          keytool -printcert -jarfile Ketra.apk | head -n 20
       - name: Upload APK to release
         uses: softprops/action-gh-release@v2
         with:

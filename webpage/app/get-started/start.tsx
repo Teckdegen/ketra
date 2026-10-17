@@ -110,11 +110,11 @@ export function GetStarted() {
                 >
                   <Brand src="/logos/platforms/play.svg" alt="Android APK" />
                   <span className="text-[12px] font-medium sm:text-[13px]">Android</span>
-                  <span className="text-[10px] text-[#8a8a8a]">APK · install</span>
+                  <span className="text-[10px] text-[#8a8a8a]">Release · APK</span>
                 </a>
               </div>
               <p className="mx-auto mt-3 max-w-[36ch] text-center text-[11px] leading-4 text-[#8a8a8a]">
-                Coming soon to the Play Store. Live now as a direct APK download.
+                Coming soon to the Play Store. Live now as a release APK. If you installed the first build, uninstall it once before updating (signing key changed).
               </p>
             </section>
 
