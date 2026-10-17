@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ketra",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The account holds the assets. An ML-DSA-44 signature moves them.",
   "background": {
     "service_worker": "background.js"
@@ -21,6 +21,5 @@
     "32": "icon.png",
     "48": "icon.png",
     "128": "icon.png"
-  },
-  "host_permissions": ["https://wallet.ketra.network/*"]
+  }
 }

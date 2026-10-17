@@ -22,17 +22,9 @@ async function openKetra() {
     }
   }
 
-  let url = APP_URL;
-  try {
-    const response = await fetch(APP_URL);
-    if (!response.ok) url = chrome.runtime.getURL("offline.html");
-  } catch {
-    url = chrome.runtime.getURL("offline.html");
-  }
-
   const bounds = stored.bounds || {};
   const options = {
-    url,
+    url: APP_URL,
     type: "popup",
     width: Math.max(bounds.width || 1040, MIN_WIDTH),
     height: Math.max(bounds.height || 720, MIN_HEIGHT),
