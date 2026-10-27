@@ -83,7 +83,13 @@ jobs:
           npm install
           # Apple Silicon refuses to launch an unsigned app, so fall back to an ad-hoc signature.
           # Hardened runtime is for notarization and breaks ad-hoc launches, so it is off there.
-          if [ -z "$CSC_LINK" ]; then SIGN="-c.mac.identity=- -c.mac.hardenedRuntime=false"; else SIGN=""; fi
+          # An unset secret arrives as an empty CSC_LINK, which electron-builder reads as a file path.
+          if [ -z "$CSC_LINK" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+            SIGN="-c.mac.identity=- -c.mac.hardenedRuntime=false"
+          else
+            SIGN=""
+          fi
           npx electron-builder --mac dmg --universal --publish never $SIGN
           ls -la dist
       - name: Upload macOS DMG to release
