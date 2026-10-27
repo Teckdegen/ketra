@@ -62,5 +62,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # macOS paused: prior arm64-only DMG did not run on Intel Macs, and Gatekeeper needs signing.
-  # Re-enable with --mac dmg --x64 --arm64 (or universal) plus Apple notarization.
+  # Universal DMG runs on Intel and Apple Silicon. With the CSC_* and APPLE_* secrets set it is
+  # signed with a Developer ID and notarized. Without them it is ad-hoc signed and Gatekeeper warns.
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and build universal macOS DMG
+        working-directory: desktop app
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm install
+          # Apple Silicon refuses to launch an unsigned app, so fall back to an ad-hoc signature.
+          # Hardened runtime is for notarization and breaks ad-hoc launches, so it is off there.
+          if [ -z "$CSC_LINK" ]; then SIGN="-c.mac.identity=- -c.mac.hardenedRuntime=false"; else SIGN=""; fi
+          npx electron-builder --mac dmg --universal --publish never $SIGN
+          ls -la dist
+      - name: Upload macOS DMG to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          files: desktop app/dist/Ketra-macOS.dmg
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

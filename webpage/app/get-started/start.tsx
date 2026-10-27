@@ -1,6 +1,12 @@
 const RELEASE = "https://github.com/Teckdegen/ketra/releases/download/v0.1.0";
 
 const DESKTOP = {
+  mac: {
+    label: "macOS",
+    href: `${RELEASE}/Ketra-macOS.dmg`,
+    logo: "/logos/platforms/apple.svg",
+    note: "Intel · Apple Silicon",
+  },
   windows: {
     label: "Windows",
     href: `${RELEASE}/Ketra-Setup.exe`,
@@ -71,7 +77,7 @@ export function GetStarted() {
         <div className="text-center">
           <h1 className="text-[1.85rem] leading-none font-medium tracking-[-0.04em] text-black sm:text-[2.35rem]">Get started</h1>
           <p className="mx-auto mt-2 max-w-[48ch] text-[13px] leading-5 text-[#8a8a8a] sm:text-[14px]">
-            Web wallet, desktop for Windows and Linux, and Android APK. Chrome, Brave, Edge, macOS, and the stores are on the way.
+            Web wallet, desktop for macOS, Windows and Linux, and Android APK. Chrome, Brave, Edge, and the stores are on the way.
           </p>
         </div>
 
@@ -121,7 +127,6 @@ export function GetStarted() {
             <section className="rounded-[24px] bg-white px-4 py-4 sm:rounded-[28px] sm:px-5 sm:py-5">
               <h2 className="text-center text-[13px] font-semibold tracking-[-0.02em]">Desktop</h2>
               <div className="mt-3 flex flex-wrap items-start justify-center gap-1 sm:mt-4 sm:gap-1">
-                <Soon label="macOS" src="/logos/platforms/apple.svg" />
                 {(Object.keys(DESKTOP) as DesktopTarget[]).map((key) => (
                   <a
                     key={key}

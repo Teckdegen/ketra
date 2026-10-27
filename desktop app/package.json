@@ -9,7 +9,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win --linux",
-    "dist:mac": "electron-builder --mac",
+    "dist:mac": "electron-builder --mac dmg --universal",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
     "pack:web": "node scripts/copy-builds.js"
@@ -30,9 +30,16 @@
     "mac": {
       "category": "public.app-category.finance",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
       ],
-      "icon": "icon-512.png"
+      "icon": "icon-512.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": [

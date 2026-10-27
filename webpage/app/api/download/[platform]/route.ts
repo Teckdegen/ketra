@@ -13,7 +13,7 @@ const FILES = {
 } as const;
 
 const PUBLISHED: Record<keyof typeof FILES, boolean> = {
-  mac: false,
+  mac: true,
   windows: true,
   linux: true,
   android: true,
