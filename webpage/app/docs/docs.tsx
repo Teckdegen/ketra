@@ -54,7 +54,7 @@ const ketraContracts = [
   { name: "Factory", address: "0x72FEE9b929eCdCd7517888ce3305614B4722808c", note: "CREATE2 deploy of key blobs and accounts" },
   { name: "MLDSA44 verifier", address: "0x91c02D5Ac2F0616cE87D63b5418f8567AE07362a", note: "On chain signature check" },
   { name: "SHAKE helper", address: "0x31cC22Cc0e9Bf60293a04cA69743001bd2A53826", note: "Pinned hash helper for the verifier" },
-  { name: "$KTR", address: "0x7e3d67c36493225805a91fe17a3f6afda65079d8", note: "Fee burn token on Pons" },
+  { name: "$KTR", address: "0x7e3d67c36493225805a91fe17a3f6afda65079d8", note: "Fee burn token" },
 ];
 
 const chainContracts = [
@@ -71,8 +71,6 @@ const chainContracts = [
   { name: "Morpho IRM", address: "0x2BD3d5965B26B51814AC95127B2b80dD6CcC0fa1", note: "Interest rate model", logo: "/logos/morpho.png" },
   { name: "Steakhouse USDG vault", address: "0xBeEff033F34C046626B8D0A041844C5d1A5409dd", note: "ERC4626 vault", logo: "/logos/steakhouse.png" },
   { name: "Lighter", address: "0x94bAB9693Ba2f6358507eFfcbd372b0660AFfF9d", note: "USDG margin deposit", logo: "/logos/lighter.png" },
-  { name: "Pons factory", address: "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e", note: "Launchpad factory", logo: "/logos/pons.png" },
-  { name: "Pons meme hook", address: "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044", note: "Meme hook", logo: "/logos/pons.png" },
 ];
 
 function NavIcon({ kind }: { kind: "play" | "book" | "list" }) {
@@ -530,7 +528,6 @@ export function Docs() {
                   { src: "/logos/bspy.png", label: "bSPY" },
                   { src: "/logos/steakhouse.png", label: "Steakhouse" },
                   { src: "/logos/lighter.png", label: "Lighter" },
-                  { src: "/logos/pons.png", label: "pons" },
                   { src: "/logos/weth.svg", label: "WETH" },
                 ].map((item) => (
                   <span key={item.label} className="inline-flex items-center gap-2 rounded-full border border-[#ebe7e0] bg-white px-3 py-1.5 text-[13px]">
