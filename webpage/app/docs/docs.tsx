@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 const EXPLORER = "https://robinhoodchain.blockscout.com";
-const BUY_KETRA = "https://ponsfamily.com/launchpad/0x7e3d67c36493225805a91fe17a3f6afda65079d8";
 const KTR_TOKEN = "0x7e3d67c36493225805a91fe17a3f6afda65079d8";
 
 const toc = [
@@ -416,16 +415,6 @@ export function Docs() {
               </p>
               <p className="not-prose flex flex-wrap items-center gap-3 pt-1 pb-2">
                 <a
-                  href={BUY_KETRA}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[13px] font-medium text-white no-underline hover:bg-[#222]"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logos/pons.png" alt="" className="h-4 w-4 rounded-sm object-contain" />
-                  Buy Ketra on Pons
-                </a>
-                <a
                   href={`${EXPLORER}/token/${KTR_TOKEN}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -444,11 +433,7 @@ export function Docs() {
               </p>
               <div className="docs-note">
                 <p>
-                  Trade $KTR on the{" "}
-                  <a href={BUY_KETRA} target="_blank" rel="noopener noreferrer">
-                    Pons launchpad
-                  </a>
-                  . The burn share is 30% of protocol fees collected by Ketra; it is separate from Robinhood Chain gas paid in ETH.
+                  The burn share is 30% of protocol fees collected by Ketra; it is separate from Robinhood Chain gas paid in ETH.
                 </p>
               </div>
             </section>
@@ -666,15 +651,6 @@ export function Docs() {
                   className="font-medium text-black underline decoration-[#d5d0c8] underline-offset-4 hover:decoration-black"
                 >
                   Open the web wallet
-                </a>
-                {" · "}
-                <a
-                  href={BUY_KETRA}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-black underline decoration-[#d5d0c8] underline-offset-4 hover:decoration-black"
-                >
-                  Buy Ketra
                 </a>
               </p>
             </section>

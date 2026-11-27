@@ -89,8 +89,8 @@ export default function PrivacyPage() {
             <h2 className="text-[1.15rem] font-semibold tracking-[-0.02em] text-black">Third parties</h2>
             <p className="mt-2">
               The wallet talks to public Robinhood Chain infrastructure (RPC, explorers, and DeFi contracts you choose to
-              use). Those networks are independent of Ketra. When you leave Ketra for another site (for example a
-              launchpad), that site&apos;s privacy policy applies.
+              use). Those networks are independent of Ketra. When you leave Ketra for another site, that site&apos;s
+              privacy policy applies.
             </p>
           </section>
 
@@ -100,11 +100,9 @@ export default function PrivacyPage() {
               Questions about this policy:{" "}
               <a
                 className="font-medium text-black underline decoration-[#ccc] underline-offset-4 hover:decoration-black"
-                href="https://x.com/ketra_network"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="mailto:hello@ketra.network"
               >
-                x.com/ketra_network
+                hello@ketra.network
               </a>
               .
             </p>
